@@ -7,7 +7,8 @@ user_data/tradesv3.sqlite-journal
 user_data/logs/*.log
 
 # Letöltött historikus adatok (nagy méret)
-user_data/data/
+user_data/data/*
+!user_data/data/.gitkeep
 
 # Hyperopt eredmények
 user_data/hyperopt_results/
@@ -23,6 +24,9 @@ user_data/plot/
 
 # Jupyter checkpoints
 user_data/notebooks/.ipynb_checkpoints/
+
+# .gitkeep fájlok megtartása
+!**/.gitkeep
 
 # OS fájlok
 .DS_Store
