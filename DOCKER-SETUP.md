@@ -264,9 +264,39 @@ docker compose run --rm freqtrade show-config --config user_data/config.json
 
 ---
 
+## Konfiguráció Újratöltése
+
+**FONTOS:** A `config.json` módosítása után MINDIG újra kell indítani/tölteni a botot!
+
+### Webserver módban (lokális fejlesztés)
+```bash
+# Állítsd le a futó webservert (Ctrl+C), majd indítsd újra:
+docker compose run --rm -p 8080:8080 freqtrade webserver --config user_data/config.json
+```
+
+### Trade módban (VPS)
+```bash
+# Újraindítás (leállít és újraindít)
+docker compose restart
+
+# VAGY teljes újraépítés
+docker compose down
+docker compose up -d
+```
+
+### Konfiguráció ellenőrzése
+```bash
+# Ellenőrizd, hogy a konfiguráció helyes-e
+docker compose run --rm freqtrade show-config --config user_data/config.json
+```
+
+---
+
 ## Pairlist Beállítása
 
-A `config.json`-ban az `exchange` szekción belül állítsd be a kereskedési párokat:
+A `config.json`-ban az `exchange` és `pairlists` szekciókban állítsd be a kereskedési párokat.
+
+### Opció 1: StaticPairList (fix párok)
 
 ```json
 {
@@ -274,6 +304,8 @@ A `config.json`-ban az `exchange` szekción belül állítsd be a kereskedési p
         "name": "binance",
         "key": "",
         "secret": "",
+        "ccxt_config": {},
+        "ccxt_async_config": {},
         "pair_whitelist": [
             "BTC/USDC",
             "ETH/USDC",
@@ -284,7 +316,9 @@ A `config.json`-ban az `exchange` szekción belül állítsd be a kereskedési p
             "AVAX/USDC",
             "DOGE/USDC"
         ],
-        "pair_blacklist": []
+        "pair_blacklist": [
+            "BNB/.*"
+        ]
     },
     "pairlists": [
         {"method": "StaticPairList"}
@@ -292,7 +326,69 @@ A `config.json`-ban az `exchange` szekción belül állítsd be a kereskedési p
 }
 ```
 
-A FreqUI "Download Data" felületén az **"Add all pairs from pairlist"** gomb ezeket a párokat fogja használni.
+### Opció 2: VolumePairList (dinamikus, volumen alapján)
+
+```json
+{
+    "exchange": {
+        "name": "binance",
+        "key": "",
+        "secret": "",
+        "ccxt_config": {},
+        "ccxt_async_config": {},
+        "pair_whitelist": [],
+        "pair_blacklist": [
+            "BNB/.*"
+        ]
+    },
+    "pairlists": [
+        {
+            "method": "VolumePairList",
+            "number_assets": 20,
+            "sort_key": "quoteVolume",
+            "min_value": 0,
+            "refresh_period": 1800
+        }
+    ]
+}
+```
+
+**Megjegyzés:** `VolumePairList` esetén a `pair_whitelist` üres lehet - a bot automatikusan a top 20 legnagyobb volumenű párt választja ki.
+
+### Opció 3: Kombinált (VolumePairList + whitelist szűrés)
+
+Ha csak bizonyos párokból akarsz választani volumen alapján:
+
+```json
+{
+    "exchange": {
+        "pair_whitelist": [
+            "BTC/USDC",
+            "ETH/USDC",
+            "SOL/USDC",
+            "ARB/USDC",
+            "TIA/USDC",
+            "ADA/USDC",
+            "AVAX/USDC",
+            "DOGE/USDC"
+        ],
+        "pair_blacklist": ["BNB/.*"]
+    },
+    "pairlists": [
+        {"method": "StaticPairList"},
+        {
+            "method": "VolumePairList",
+            "number_assets": 8,
+            "sort_key": "quoteVolume",
+            "refresh_period": 1800
+        }
+    ]
+}
+```
+
+A FreqUI "Download Data" felületén az **"Add all pairs from pairlist"** gomb a fenti párok alapján fog működni.
+
+**Konfiguráció módosítása után ne felejtsd el újraindítani a botot!**
 
 ---
 
@@ -306,15 +402,17 @@ A FreqUI "Download Data" felületén az **"Add all pairs from pairlist"** gomb e
 4. Add meg a bot username-jét (pl. `my_freqtrade_bot`) - **kötelezően `bot`-ra kell végződnie!**
 5. **Mentsd el a kapott API TOKEN-t** (pl. `1234567890:ABCdefGHIjklMNOpqrsTUVwxyz`)
 
+**BIZTONSÁGI FIGYELMEZTETÉS:** A Telegram tokent SOHA ne oszd meg, ne commitold git-be! Ha véletlenül kikerült, azonnal érvénytelenítsd: @BotFather → `/revoke` → `/token`
+
 ### 2. Chat ID Lekérése
 
 1. Keresd meg a [@userinfobot](https://telegram.me/userinfobot)-ot
-2. Küldj neki bármit
+2. Küldj neki bármit (pl. "hello")
 3. **Mentsd el az "Id" értéket** (pl. `123456789`)
 
 ### 3. Bot Aktiválása
 
-**FONTOS:** Nyisd meg a saját botodat és nyomd meg a `/start` gombot! Enélkül nem fog működni.
+**FONTOS:** Nyisd meg a saját botodat a Telegram-ban és nyomd meg a `/start` gombot! Enélkül a bot nem tud üzenetet küldeni neked.
 
 ### 4. Konfiguráció
 
@@ -324,8 +422,8 @@ Add hozzá a `config.json`-hoz:
 {
     "telegram": {
         "enabled": true,
-        "token": "1234567890:ABCdefGHIjklMNOpqrsTUVwxyz",
-        "chat_id": "123456789",
+        "token": "IDE_A_TE_TOKENED",
+        "chat_id": "IDE_A_TE_CHAT_ID",
         "notification_settings": {
             "status": "on",
             "warning": "on",
@@ -339,26 +437,60 @@ Add hozzá a `config.json`-hoz:
 }
 ```
 
-**Vagy használd a `.env` fájlt** (biztonságosabb):
+**Vagy használd a `.env` fájlt** (AJÁNLOTT - biztonságosabb):
 
 ```bash
 # .env fájlban
-FREQTRADE__TELEGRAM__TOKEN=1234567890:ABCdefGHIjklMNOpqrsTUVwxyz
-FREQTRADE__TELEGRAM__CHAT_ID=123456789
+FREQTRADE__TELEGRAM__TOKEN=ide_a_te_tokened
+FREQTRADE__TELEGRAM__CHAT_ID=ide_a_te_chat_id
+FREQTRADE__TELEGRAM__ENABLED=true
 ```
 
-### 5. Telegram Parancsok
+### 5. Telegram Aktiválás Ellenőrzése
+
+```bash
+# Indítsd újra a botot
+docker compose restart
+
+# Ellenőrizd a logokat - sikeres kapcsolat esetén látod:
+docker compose logs -f | grep -i telegram
+```
+
+Sikeres kapcsolat esetén a bot üzenetet küld a Telegram chatbe.
+
+### 6. Telegram Parancsok
 
 | Parancs | Leírás |
 |---------|--------|
-| `/start` | Bot indítása |
+| `/start` | Bot indítása (trading engedélyezése) |
 | `/stop` | Bot leállítása |
+| `/pause` | Új pozíciók tiltása (meglévők maradnak) |
 | `/status` | Nyitott pozíciók listázása |
+| `/status table` | Pozíciók táblázatos formában |
 | `/profit` | Profit összesítés |
 | `/balance` | Egyenleg |
 | `/daily` | Napi profit (utolsó 7 nap) |
+| `/weekly` | Heti profit |
 | `/forceexit <trade_id>` | Pozíció azonnali zárása |
+| `/forceexit all` | Összes pozíció zárása |
+| `/reload_config` | Konfiguráció újratöltése |
+| `/whitelist` | Aktív párok listázása |
+| `/blacklist` | Tiltott párok listázása |
 | `/help` | Összes parancs listázása |
+
+### 7. Hibaelhárítás
+
+**A bot nem küld üzenetet:**
+1. Ellenőrizd, hogy megnyomtad-e a `/start` gombot a botodban
+2. Ellenőrizd a token és chat_id helyességét
+3. Nézd meg a logokat: `docker compose logs -f | grep -i telegram`
+4. Próbáld újraindítani: `docker compose restart`
+
+**"Unauthorized" hiba:**
+- A token hibás - ellenőrizd a @BotFather-nél
+
+**"Chat not found" hiba:**
+- A chat_id hibás - ellenőrizd a @userinfobot-nál
 
 ---
 
