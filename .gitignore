@@ -1,0 +1,37 @@
+# IDE
+.idea/
+.vscode/
+
+# OS fájlok
+.DS_Store
+Thumbs.db
+
+# Érzékeny adatok
+ft_userdata/.env
+
+# Freqtrade adatok
+ft_userdata/user_data/tradesv3.sqlite
+ft_userdata/user_data/tradesv3.sqlite-journal
+ft_userdata/user_data/logs/*.log
+
+# Letöltött historikus adatok (nagy méret)
+ft_userdata/user_data/data/*
+!ft_userdata/user_data/data/.gitkeep
+
+# Hyperopt eredmények
+ft_userdata/user_data/hyperopt_results/
+
+# FreqAI modellek
+ft_userdata/user_data/models/
+
+# Backtest eredmények
+ft_userdata/user_data/backtest_results/
+
+# Plot fájlok
+ft_userdata/user_data/plot/
+
+# Jupyter checkpoints
+ft_userdata/user_data/notebooks/.ipynb_checkpoints/
+
+# .gitkeep fájlok megtartása
+!**/.gitkeep
