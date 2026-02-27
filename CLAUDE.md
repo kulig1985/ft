@@ -4,7 +4,9 @@ Ez a fájl útmutatást ad a Claude Code (claude.ai/code) számára a repository
 
 ## Projekt áttekintés
 
-Ez egy Freqtrade kereskedési platform Docker-alapú konfigurációja. A projekt célja: kriptovaluta kereskedési bot futtatása Ubuntu VPS-en Caddy reverse proxy mögött (`freqtrade.kebodev.hu`).
+Freqtrade kereskedési platform Docker-alapú konfigurációja. Két használati mód:
+- **Lokális (macOS)**: Backtesting, plotting, stratégia fejlesztés
+- **VPS (Ubuntu)**: Live/dry-run trading (`freqtrade.kebodev.hu`)
 
 ## Munkakönyvtár struktúra
 
@@ -36,7 +38,13 @@ docker compose ps                 # Állapot ellenőrzése
 docker compose pull && docker compose up -d  # Frissítés
 ```
 
-### Backtesting
+### FreqUI Webserver mód (Backtesting UI-val)
+```bash
+docker compose run --rm -p 8080:8080 freqtrade webserver --config user_data/config.json
+```
+Elérhető: http://localhost:8080 - backtesting, plotting, adat letöltés böngészőből.
+
+### Backtesting (parancssor)
 ```bash
 docker compose run --rm freqtrade backtesting \
   --config user_data/config.json \
@@ -68,6 +76,15 @@ docker compose run --rm freqtrade show-config --config user_data/config.json
 ```bash
 docker compose run --rm freqtrade new-config --config user_data/config.json
 ```
+
+### Plotting
+```bash
+docker compose run --rm freqtrade plot-dataframe \
+  --strategy StrategiaNeved \
+  -p BTC/USDT \
+  --timerange 20240101-20240115
+```
+Kimenet: `user_data/plot/` (HTML fájl)
 
 ## Konfiguráció
 
