@@ -264,6 +264,104 @@ docker compose run --rm freqtrade show-config --config user_data/config.json
 
 ---
 
+## Pairlist Beállítása
+
+A `config.json`-ban az `exchange` szekción belül állítsd be a kereskedési párokat:
+
+```json
+{
+    "exchange": {
+        "name": "binance",
+        "key": "",
+        "secret": "",
+        "pair_whitelist": [
+            "BTC/USDC",
+            "ETH/USDC",
+            "SOL/USDC",
+            "ARB/USDC",
+            "TIA/USDC",
+            "ADA/USDC",
+            "AVAX/USDC",
+            "DOGE/USDC"
+        ],
+        "pair_blacklist": []
+    },
+    "pairlists": [
+        {"method": "StaticPairList"}
+    ]
+}
+```
+
+A FreqUI "Download Data" felületén az **"Add all pairs from pairlist"** gomb ezeket a párokat fogja használni.
+
+---
+
+## Telegram Bot Beállítása
+
+### 1. Bot Létrehozása
+
+1. Nyisd meg a Telegram-ot és keresd meg a [@BotFather](https://telegram.me/BotFather)-t
+2. Küldj üzenetet: `/newbot`
+3. Add meg a bot nevét (pl. `Freqtrade Bot`)
+4. Add meg a bot username-jét (pl. `my_freqtrade_bot`) - **kötelezően `bot`-ra kell végződnie!**
+5. **Mentsd el a kapott API TOKEN-t** (pl. `1234567890:ABCdefGHIjklMNOpqrsTUVwxyz`)
+
+### 2. Chat ID Lekérése
+
+1. Keresd meg a [@userinfobot](https://telegram.me/userinfobot)-ot
+2. Küldj neki bármit
+3. **Mentsd el az "Id" értéket** (pl. `123456789`)
+
+### 3. Bot Aktiválása
+
+**FONTOS:** Nyisd meg a saját botodat és nyomd meg a `/start` gombot! Enélkül nem fog működni.
+
+### 4. Konfiguráció
+
+Add hozzá a `config.json`-hoz:
+
+```json
+{
+    "telegram": {
+        "enabled": true,
+        "token": "1234567890:ABCdefGHIjklMNOpqrsTUVwxyz",
+        "chat_id": "123456789",
+        "notification_settings": {
+            "status": "on",
+            "warning": "on",
+            "startup": "on",
+            "entry": "on",
+            "entry_fill": "on",
+            "exit": "on",
+            "exit_fill": "on"
+        }
+    }
+}
+```
+
+**Vagy használd a `.env` fájlt** (biztonságosabb):
+
+```bash
+# .env fájlban
+FREQTRADE__TELEGRAM__TOKEN=1234567890:ABCdefGHIjklMNOpqrsTUVwxyz
+FREQTRADE__TELEGRAM__CHAT_ID=123456789
+```
+
+### 5. Telegram Parancsok
+
+| Parancs | Leírás |
+|---------|--------|
+| `/start` | Bot indítása |
+| `/stop` | Bot leállítása |
+| `/status` | Nyitott pozíciók listázása |
+| `/profit` | Profit összesítés |
+| `/balance` | Egyenleg |
+| `/daily` | Napi profit (utolsó 7 nap) |
+| `/forceexit <trade_id>` | Pozíció azonnali zárása |
+| `/help` | Összes parancs listázása |
+
+---
+
 ## Különbségek: Lokális vs VPS
 
 | | Lokális (macOS) | VPS (Ubuntu) |
@@ -272,4 +370,5 @@ docker compose run --rm freqtrade show-config --config user_data/config.json
 | Caddy | Nem kell | Kell (HTTPS) |
 | .env (API kulcsok) | Nem kell backtesthez | Kell live tradinghez |
 | config.json `dry_run` | `true` | `false` (éles kereskedés) |
+| Telegram | Opcionális | Ajánlott |
 | Használat | Backtesting, fejlesztés, plotting | Live/dry-run trading |
