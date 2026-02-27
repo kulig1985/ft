@@ -26,31 +26,51 @@ A stratégiák közvetlenül a `user_data/strategies/` mappába kerülnek - ninc
 
 ---
 
+## Konfiguráció Felépítése
+
+A projekt két konfigurációs fájlt használ:
+
+| Fájl | Tartalom | Git-be kerül? |
+|------|----------|---------------|
+| `config.json` | Általános beállítások (párok, stratégia, stb.) | **IGEN** |
+| `.env` | Érzékeny adatok (tokenek, jelszavak) | **NEM** |
+
+**A `.env` fájl környezeti változói FELÜLÍRJÁK a `config.json` értékeit!**
+
+---
+
 ## Lokális Fejlesztés (macOS)
 
 ### 1. Docker Desktop Telepítése
 
 Töltsd le és telepítsd a [Docker Desktop for Mac](https://docs.docker.com/docker-for-mac/install/)-et.
 
-### 2. Projekt Klónozása és Első Indítás
+### 2. Projekt Klónozása és .env Beállítása
 
 ```bash
 git clone -b develop https://github.com/kulig1985/ft.git
 cd ft/ft_userdata
 
-# Image letöltése
-docker compose pull
+# .env fájl létrehozása a példa alapján
+cp .env.example .env
 
-# Konfiguráció létrehozása (interaktív)
-docker compose run --rm freqtrade new-config --config user_data/config.json
+# .env szerkesztése - töltsd ki a valós értékeket!
+nano .env   # vagy: code .env
 ```
 
-A konfiguráció létrehozásakor:
-- Exchange: válaszd ki a kívántat (pl. binance)
-- Dry-run: **Yes** (lokális fejlesztéshez)
-- API szerver: **Yes** (FreqUI-hoz)
+A `.env` fájlban töltsd ki:
+- `FREQTRADE__TELEGRAM__TOKEN` - Telegram bot token (@BotFather-től)
+- `FREQTRADE__TELEGRAM__CHAT_ID` - Chat ID (@userinfobot-tól)
+- `FREQTRADE__API_SERVER__USERNAME` - FreqUI felhasználónév
+- `FREQTRADE__API_SERVER__PASSWORD` - FreqUI jelszó
 
-### 3. FreqUI Webserver Mód (Backtesting UI-val)
+### 3. Image Letöltése
+
+```bash
+docker compose pull
+```
+
+### 4. FreqUI Webserver Mód (Backtesting UI-val)
 
 A `webserver` mód lehetővé teszi a backtesting futtatását közvetlenül a böngészőből:
 
@@ -59,6 +79,8 @@ docker compose run --rm -p 8080:8080 freqtrade webserver --config user_data/conf
 ```
 
 FreqUI elérhető: **http://localhost:8080**
+
+Bejelentkezés: a `.env` fájlban megadott `USERNAME` és `PASSWORD` párossal.
 
 A webserver módban elérhető:
 - Backtesting futtatás és vizualizáció
