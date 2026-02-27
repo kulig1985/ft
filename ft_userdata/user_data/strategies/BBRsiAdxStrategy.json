@@ -17,14 +17,14 @@
       "max_open_trades": 5
     },
     "buy": {
-      "adx_threshold_1h": 20,
-      "adx_threshold_4h": 29,
-      "atr_multiplier": 3.266,
-      "bb_period": 16,
-      "bb_std": 1.565,
-      "rsi_threshold": 50
+      "adx_threshold_1h": 24,
+      "adx_threshold_4h": 25,
+      "atr_multiplier": 4.392,
+      "bb_period": 15,
+      "bb_std": 1.717,
+      "rsi_threshold": 54
     }
   },
   "ft_stratparam_v": 1,
-  "export_time": "2026-02-27 18:45:25.081242+00:00"
+  "export_time": "2026-02-27 19:45:47.889067+00:00"
 }

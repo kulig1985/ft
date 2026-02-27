@@ -16,7 +16,7 @@ services:
     volumes:
       - "./user_data:/freqtrade/user_data"
     ports:
-      # Csak localhost-on elérhető, Caddy reverse proxy mögött
+      # FreqUI elérhető: http://localhost:8080
       - "127.0.0.1:8080:8080"
     # Környezeti változók érzékeny adatokhoz (.env fájlból)
     env_file:
@@ -26,4 +26,26 @@ services:
       --logfile /freqtrade/user_data/logs/freqtrade.log
       --db-url sqlite:////freqtrade/user_data/tradesv3.sqlite
       --config /freqtrade/user_data/config.json
-      --strategy SampleStrategy
+      --strategy BBRsiAdxStrategy
+
+  # --- Második stratégia (példa) ---
+  # Ha új stratégiát akarsz futtatni párhuzamosan, vedd ki a kommentből
+  # és módosítsd a stratégia nevét, portot és db fájlnevet.
+  #
+  # freqtrade2:
+  #   image: freqtradeorg/freqtrade:stable
+  #   restart: unless-stopped
+  #   container_name: freqtrade2
+  #   volumes:
+  #     - "./user_data:/freqtrade/user_data"
+  #   ports:
+  #     # FreqUI elérhető: http://localhost:8081
+  #     - "127.0.0.1:8081:8080"
+  #   env_file:
+  #     - .env
+  #   command: >
+  #     trade
+  #     --logfile /freqtrade/user_data/logs/freqtrade2.log
+  #     --db-url sqlite:////freqtrade/user_data/tradesv3-strategy2.sqlite
+  #     --config /freqtrade/user_data/config.json.orignal
+  #     --strategy MasodikStrategia

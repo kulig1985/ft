@@ -40,14 +40,14 @@ docker compose pull && docker compose up -d  # Frissítés
 
 ### FreqUI Webserver mód (Backtesting UI-val)
 ```bash
-docker compose run --rm -p 8080:8080 freqtrade webserver --config user_data/config.json
+docker compose run --rm -p 8080:8080 freqtrade webserver --config user_data/config.json.orignal
 ```
 Elérhető: http://localhost:8080 - backtesting, plotting, adat letöltés böngészőből.
 
 ### Backtesting (parancssor)
 ```bash
 docker compose run --rm freqtrade backtesting \
-  --config user_data/config.json \
+  --config user_data/config.json.orignal \
   --strategy StrategiaNeved \
   --timerange 20230101-20231231 \
   -i 5m
@@ -69,12 +69,12 @@ docker compose run --rm freqtrade list-strategies
 
 ### Konfiguráció ellenőrzése
 ```bash
-docker compose run --rm freqtrade show-config --config user_data/config.json
+docker compose run --rm freqtrade show-config --config user_data/config.json.orignal
 ```
 
 ### Új konfiguráció generálása
 ```bash
-docker compose run --rm freqtrade new-config --config user_data/config.json
+docker compose run --rm freqtrade new-config --config user_data/config.json.orignal
 ```
 
 ### Plotting

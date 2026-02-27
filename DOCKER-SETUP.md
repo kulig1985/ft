@@ -75,7 +75,7 @@ docker compose pull
 A `webserver` mód lehetővé teszi a backtesting futtatását közvetlenül a böngészőből:
 
 ```bash
-docker compose run --rm -p 8080:8080 freqtrade webserver --config user_data/config.json
+docker compose run --rm -p 8080:8080 freqtrade webserver --config user_data/config.json.orignal
 ```
 
 FreqUI elérhető: **http://localhost:8080**
@@ -100,7 +100,7 @@ docker compose run --rm freqtrade download-data \
 
 # Backtesting futtatása
 docker compose run --rm freqtrade backtesting \
-  --config user_data/config.json \
+  --config user_data/config.json.orignal \
   --strategy MyStrategy \
   --timerange 20240101-20240201 \
   -i 5m
@@ -136,7 +136,7 @@ A kimenet a `user_data/plot/` mappában lesz, böngészőben megnyitható HTML f
 
 ```bash
 docker compose run --rm freqtrade hyperopt \
-  --config user_data/config.json \
+  --config user_data/config.json.orignal \
   --strategy MyStrategy \
   --hyperopt-loss SharpeHyperOptLoss \
   --spaces buy sell \
@@ -195,7 +195,7 @@ nano .env  # API kulcsok kitöltése
 
 ```bash
 docker compose pull
-docker compose run --rm freqtrade new-config --config user_data/config.json
+docker compose run --rm freqtrade new-config --config user_data/config.json.orignal
 ```
 
 A `config.json`-ban módosítsd az API szervert:
@@ -281,7 +281,7 @@ docker compose pull && docker compose up -d
 docker compose run --rm freqtrade list-strategies
 
 # Konfiguráció ellenőrzése
-docker compose run --rm freqtrade show-config --config user_data/config.json
+docker compose run --rm freqtrade show-config --config user_data/config.json.orignal
 ```
 
 ---
@@ -293,7 +293,7 @@ docker compose run --rm freqtrade show-config --config user_data/config.json
 ### Webserver módban (lokális fejlesztés)
 ```bash
 # Állítsd le a futó webservert (Ctrl+C), majd indítsd újra:
-docker compose run --rm -p 8080:8080 freqtrade webserver --config user_data/config.json
+docker compose run --rm -p 8080:8080 freqtrade webserver --config user_data/config.json.orignal
 ```
 
 ### Trade módban (VPS)
@@ -309,7 +309,7 @@ docker compose up -d
 ### Konfiguráció ellenőrzése
 ```bash
 # Ellenőrizd, hogy a konfiguráció helyes-e
-docker compose run --rm freqtrade show-config --config user_data/config.json
+docker compose run --rm freqtrade show-config --config user_data/config.json.orignal
 ```
 
 ---

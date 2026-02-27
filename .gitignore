@@ -35,3 +35,4 @@ ft_userdata/user_data/notebooks/.ipynb_checkpoints/
 
 # .gitkeep fájlok megtartása
 !**/.gitkeep
+/.venv

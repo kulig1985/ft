@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git checkout:*)",
+      "Bash(git cherry-pick:*)",
+      "Bash(git:*)",
+      "Bash(cp:*)",
+      "Bash(docker compose:*)",
+      "Bash(xargs -r docker stop)",
+      "Bash(xargs -r docker rm)"
+    ]
+  }
+}

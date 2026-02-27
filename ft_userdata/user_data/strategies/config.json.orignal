@@ -38,14 +38,16 @@
         "ccxt_config": {},
         "ccxt_async_config": {},
         "pair_whitelist": [
-            "BTC/USDC:USDC",
+            //"BTC/USDC:USDC",
             "ETH/USDC:USDC",
             "SOL/USDC:USDC",
             "ARB/USDC:USDC",
-            "TIA/USDC:USDC",
-            "ADA/USDC:USDC",
+            //"TIA/USDC:USDC",
+            //"ADA/USDC:USDC",
             "AVAX/USDC:USDC",
             "DOGE/USDC:USDC"
+            //"OP/USDT:USDT",
+            //"CFX/USDT:USDT"
         ],
         "pair_blacklist": [
             "BNB/.*"
@@ -55,9 +57,9 @@
         {"method": "StaticPairList"}
     ],
     "telegram": {
-        "enabled": false,
-        "token": "",
-        "chat_id": ""
+        "enabled": true,
+        "token": "TELEGRAM_TOKEN_REMOVED",
+        "chat_id": "CHAT_ID_REMOVED"
     },
     "api_server": {
         "enabled": true,
@@ -73,7 +75,7 @@
     },
     "bot_name": "freqtrade",
     "initial_state": "running",
-    "force_entry_enable": false,
+    "force_entry_enable": true,
     "internals": {
         "process_throttle_secs": 5
     }
