@@ -1,0 +1,30 @@
+{
+  "strategy_name": "BBRsiAdxStrategy",
+  "params": {
+    "roi": {
+      "0": 999
+    },
+    "stoploss": {
+      "stoploss": -0.99
+    },
+    "trailing": {
+      "trailing_stop": false,
+      "trailing_stop_positive": null,
+      "trailing_stop_positive_offset": 0.0,
+      "trailing_only_offset_is_reached": false
+    },
+    "max_open_trades": {
+      "max_open_trades": 5
+    },
+    "buy": {
+      "adx_threshold_1h": 20,
+      "adx_threshold_4h": 29,
+      "atr_multiplier": 3.266,
+      "bb_period": 16,
+      "bb_std": 1.565,
+      "rsi_threshold": 50
+    }
+  },
+  "ft_stratparam_v": 1,
+  "export_time": "2026-02-27 18:45:25.081242+00:00"
+}
