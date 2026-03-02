@@ -70,6 +70,66 @@ class BBRsiAdxStrategy(IStrategy):
             self.pair_configs = {}
             logger.warning("BBRsiAdx | pair_configs.json nem található, default értékek lesznek használva")
 
+    # Gyertyánkénti logoláshoz: utolsó logolt gyertya timestamp páronként
+    _last_logged_candle: dict = {}
+
+    def bot_loop_start(self, current_time: datetime, **kwargs) -> None:
+        for pair in self.dp.current_whitelist():
+            dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
+            if dataframe.empty:
+                continue
+
+            last = dataframe.iloc[-1]
+            candle_time = last["date"]
+
+            # Csak új gyertyánál logol (nem minden 5 másodpercben)
+            if self._last_logged_candle.get(pair) == candle_time:
+                continue
+            self._last_logged_candle[pair] = candle_time
+
+            rsi_thr    = self._p(pair, "rsi_threshold")
+            adx_thr_1h = self._p(pair, "adx_threshold_1h")
+            adx_thr_4h = self._p(pair, "adx_threshold_4h")
+
+            close     = last["close"]
+            bb_upper  = last.get("bb_upper", float("nan"))
+            bb_lower  = last.get("bb_lower", float("nan"))
+            adx_1h    = last.get("adx",    float("nan"))
+            adx_4h    = last.get("adx_4h", float("nan"))
+            rsi_4h    = last.get("rsi_4h", float("nan"))
+
+            logger.info(
+                f"[{pair}] {candle_time} | "
+                f"close={close:.4f}  BB[{bb_lower:.4f} / {bb_upper:.4f}]  "
+                f"ADX1h={adx_1h:.1f}(>{adx_thr_1h})  "
+                f"ADX4h={adx_4h:.1f}(>{adx_thr_4h})  "
+                f"RSI4h={rsi_4h:.1f}"
+            )
+
+            # --- LONG feltételek ellenőrzése ---
+            long_blocks = []
+            if not (rsi_4h   > rsi_thr):    long_blocks.append(f"RSI4h {rsi_4h:.1f} <= {rsi_thr}")
+            if not (adx_1h   > adx_thr_1h): long_blocks.append(f"ADX1h {adx_1h:.1f} <= {adx_thr_1h}")
+            if not (adx_4h   > adx_thr_4h): long_blocks.append(f"ADX4h {adx_4h:.1f} <= {adx_thr_4h}")
+            if not (close    < bb_lower):    long_blocks.append(f"close {close:.4f} >= BB_lower {bb_lower:.4f}")
+
+            if long_blocks:
+                logger.info(f"[{pair}] LONG  blokkolt: {' | '.join(long_blocks)}")
+            else:
+                logger.info(f"[{pair}] LONG  >>> SIGNAL READY <<<")
+
+            # --- SHORT feltételek ellenőrzése ---
+            short_blocks = []
+            if not (rsi_4h < (100 - rsi_thr)): short_blocks.append(f"RSI4h {rsi_4h:.1f} >= {100 - rsi_thr}")
+            if not (adx_1h > adx_thr_1h):      short_blocks.append(f"ADX1h {adx_1h:.1f} <= {adx_thr_1h}")
+            if not (adx_4h > adx_thr_4h):      short_blocks.append(f"ADX4h {adx_4h:.1f} <= {adx_thr_4h}")
+            if not (close  > bb_upper):         short_blocks.append(f"close {close:.4f} <= BB_upper {bb_upper:.4f}")
+
+            if short_blocks:
+                logger.info(f"[{pair}] SHORT blokkolt: {' | '.join(short_blocks)}")
+            else:
+                logger.info(f"[{pair}] SHORT >>> SIGNAL READY <<<")
+
     def _p(self, pair: str, key: str):
         """Páronkénti paraméter lookup. Ha a pár benne van a pair_configs-ban,
         onnan adja vissza az értéket, egyébként a hyperopt/default paraméterre esik vissza."""
