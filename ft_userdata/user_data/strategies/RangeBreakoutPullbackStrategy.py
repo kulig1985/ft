@@ -110,6 +110,14 @@ class RangeBreakoutPullbackStrategy(IStrategy):
             return self.pair_configs[pair][key]
         return getattr(self, key).value
 
+    @staticmethod
+    def _escape_md2(text: str) -> str:
+        """Telegram MarkdownV2 speciális karakterek escape-elése.
+        Kötelező escape-elni (code spanen kívül): _ * [ ] ( ) ~ ` > # + - = | { } . !
+        """
+        special = set(r'\_*[]()~`>#+=|{}.!-')
+        return "".join(f"\\{c}" if c in special else c for c in str(text))
+
     def informative_pairs(self):
         # A range 5m gyertyák timezone-aware aggregálásából számolódik.
         # Az exchange 4H gyertyák UTC-aligned-ek (00:00, 04:00, 08:00...),
@@ -144,7 +152,7 @@ class RangeBreakoutPullbackStrategy(IStrategy):
         stop_buf = self._p(pair, "stop_buffer_pct")
         rr_ratio = self._p(pair, "risk_reward_ratio")
 
-        logger.info(
+        logger.debug(
             f"RangeBreakout | {pair} | tz={tz_str}, rr={rr_ratio}, "
             f"range=[{min_range_pct}%-{max_range_pct}%], max_bars={max_bars}, "
             f"buf={stop_buf}"
@@ -160,6 +168,9 @@ class RangeBreakoutPullbackStrategy(IStrategy):
         date_ref = date_idx.tz_convert(ref_tz)
         ref_hours = date_ref.hour.to_numpy()       # numpy int array
         ref_dates = date_ref.strftime("%Y-%m-%d")  # pandas Index of strings
+
+        # Az utolsó (élő) gyertya dátuma és indexe – csak ezek logolódnak INFO-n
+        last_date = ref_dates[-1]
 
         # --- Pre-allokált eredmény oszlopok ---
         n = len(dataframe)
@@ -229,7 +240,8 @@ class RangeBreakoutPullbackStrategy(IStrategy):
                 range_l = range_build_low
                 range_is_valid = True
                 range_size_pct = (range_h - range_l) / range_l * 100
-                logger.info(
+                _log = logger.info if ref_date == last_date else logger.debug
+                _log(
                     f"RangeBreakout | {pair} | {ref_date} ({tz_str}) | "
                     f"Range kész: H={range_h:.6f} L={range_l:.6f} "
                     f"({range_size_pct:.2f}%)"
@@ -301,7 +313,8 @@ class RangeBreakoutPullbackStrategy(IStrategy):
                     dataframe.iat[i, col["sl_price"]] = sl
                     dataframe.iat[i, col["tp_price"]] = tp
 
-                    logger.info(
+                    _log = logger.info if i == n - 1 else logger.debug
+                    _log(
                         f"RangeBreakout | {pair} | SHORT SIGNAL | "
                         f"entry~={close:.4f} SL={sl:.4f} TP={tp:.4f} | "
                         f"kitörés extreme={bo_extreme:.4f} ({bo_bars} bar alatt)"
@@ -334,7 +347,8 @@ class RangeBreakoutPullbackStrategy(IStrategy):
                     dataframe.iat[i, col["sl_price"]] = sl
                     dataframe.iat[i, col["tp_price"]] = tp
 
-                    logger.info(
+                    _log = logger.info if i == n - 1 else logger.debug
+                    _log(
                         f"RangeBreakout | {pair} | LONG SIGNAL | "
                         f"entry~={close:.4f} SL={sl:.4f} TP={tp:.4f} | "
                         f"kitörés extreme={bo_extreme:.4f} ({bo_bars} bar alatt)"
@@ -432,6 +446,29 @@ class RangeBreakoutPullbackStrategy(IStrategy):
 
         return None
 
+    @property
+    def plot_config(self) -> dict:
+        """Freqtrade plot konfiguráció.
+        A range_high/range_low vonalak a fő charton jelennek meg (kék szaggatott).
+        A signalok egy külön subplot-ban látszanak.
+        Futtatás: docker compose run --rm freqtrade plot-dataframe ...
+        """
+        return {
+            "main_plot": {
+                "range_high": {"color": "#4488ff", "type": "line"},
+                "range_low": {"color": "#4488ff", "type": "line"},
+            },
+            "subplots": {
+                "Signals": {
+                    "signal_long": {"color": "#00cc44", "type": "bar"},
+                    "signal_short": {"color": "#cc2200", "type": "bar"},
+                },
+                "Range valid": {
+                    "range_valid": {"color": "#aaaaaa", "type": "line"},
+                },
+            },
+        }
+
     def leverage(
         self,
         pair: str,
@@ -446,7 +483,7 @@ class RangeBreakoutPullbackStrategy(IStrategy):
         return 20.0  # Fix 20x leverage, isolated margin
 
     def bot_loop_start(self, current_time: datetime, **kwargs) -> None:
-        """Gyertyánkénti logolás: range állapot, close, Budapest idő."""
+        """Gyertyánkénti logolás: range állapot, close pozíció, Budapest idő + Telegram."""
         bp_now = datetime.now(self._bp_tz)
 
         for pair in self.dp.current_whitelist():
@@ -462,38 +499,68 @@ class RangeBreakoutPullbackStrategy(IStrategy):
                 continue
             self._last_logged_candle[pair] = candle_time
 
-            range_h = last.get("range_high", float("nan"))
-            range_l = last.get("range_low", float("nan"))
-            range_valid = last.get("range_valid", 0)
-            ref_date = last.get("ref_date_str", "")
-            close = last["close"]
+            range_h = float(last.get("range_high", float("nan")))
+            range_l = float(last.get("range_low", float("nan")))
+            range_valid = int(last.get("range_valid", 0))
+            ref_date = str(last.get("ref_date_str", ""))
+            close = float(last["close"])
             tz_str = self._p(pair, "range_timezone")
+
+            # --- Ár pozíció a range-hez képest ---
+            range_ok = False
+            size_str = "n/a"
+            pos_str = "no range"
+            if range_valid and not (np.isnan(range_h) or np.isnan(range_l)):
+                range_size_pct = (range_h - range_l) / range_l * 100
+                min_r = self._p(pair, "min_range_size_pct")
+                max_r = self._p(pair, "max_range_size_pct")
+                range_ok = min_r <= range_size_pct <= max_r
+
+                if close > range_h:
+                    dist = (close - range_h) / range_h * 100
+                    pos_str = f"ABOVE +{dist:.2f}%"
+                elif close < range_l:
+                    dist = (range_l - close) / range_l * 100
+                    pos_str = f"BELOW -{dist:.2f}%"
+                else:
+                    inside_pct = (close - range_l) / (range_h - range_l) * 100
+                    pos_str = f"INSIDE {inside_pct:.0f}%"
+
+                filter_tag = "OK" if range_ok else f"FILTERED (min={min_r}%,max={max_r}%)"
+                size_str = f"{range_size_pct:.2f}% [{filter_tag}]"
 
             logger.info(
                 f"[{pair}] {candle_time} (BP: {bp_now:%H:%M}) | "
-                f"close={close:.4f} | "
-                f"range[{range_l:.4f} / {range_h:.4f}] valid={int(range_valid)} | "
-                f"ref_date={ref_date} ({tz_str})"
+                f"close={close:.4f} [{pos_str}] | "
+                f"range[{range_l:.4f}/{range_h:.4f}] size={size_str} | "
+                f"ref={ref_date} ({tz_str})"
             )
 
-            # Telegram értesítés: új napi range kialakult (naponta egyszer páronként)
-            if range_valid and ref_date:
+            # --- Telegram értesítés: új napi range (naponta egyszer páronként) ---
+            if range_valid and ref_date and not (np.isnan(range_h) or np.isnan(range_l)):
                 last_notified = self._last_range_notified.get(pair)
                 if last_notified != ref_date:
                     self._last_range_notified[pair] = ref_date
-                    if not np.isnan(float(range_h)) and not np.isnan(float(range_l)):
-                        range_size_pct = (range_h - range_l) / range_l * 100
-                        msg = (
-                            f"*{pair}* - Napi range ({ref_date})\n"
-                            f"High: `{range_h:.4f}`\n"
-                            f"Low: `{range_l:.4f}`\n"
-                            f"Meret: `{range_size_pct:.2f}%`\n"
-                            f"TZ: {tz_str}"
+                    range_size_pct = (range_h - range_l) / range_l * 100
+                    filter_tag = "✅ aktív" if range_ok else f"⚠️ FILTERED"
+
+                    ep = self._escape_md2(pair)
+                    ed = self._escape_md2(ref_date)   # 2026\-03\-21
+                    etz = self._escape_md2(tz_str)    # Europe/London (nincs spec. kar.)
+                    ef = self._escape_md2(filter_tag)
+
+                    msg = (
+                        f"*{ep}* \\- Napi range \\({ed}\\)\n"
+                        f"High: `{range_h:.4f}`\n"
+                        f"Low: `{range_l:.4f}`\n"
+                        f"Méret: `{range_size_pct:.2f}%` {ef}\n"
+                        f"TZ: {etz}"
+                    )
+                    try:
+                        self.dp.send_msg(msg)
+                    except Exception:
+                        logger.info(
+                            f"RangeBreakout | {pair} | Napi range ({ref_date}): "
+                            f"H={range_h:.4f} L={range_l:.4f} "
+                            f"({range_size_pct:.2f}%) {filter_tag}"
                         )
-                        try:
-                            self.dp.send_msg(msg)
-                        except Exception:
-                            logger.info(
-                                f"RangeBreakout | {pair} | Napi range ({ref_date}): "
-                                f"H={range_h:.4f} L={range_l:.4f} ({range_size_pct:.2f}%)"
-                            )
