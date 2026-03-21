@@ -12,7 +12,13 @@ ft_userdata/.env
 # Freqtrade adatok
 ft_userdata/user_data/tradesv3.sqlite
 ft_userdata/user_data/tradesv3.sqlite-journal
+ft_userdata/user_data/tradesv3-rb.sqlite
+ft_userdata/user_data/tradesv3-rb.sqlite-journal
 ft_userdata/user_data/logs/*.log
+
+# Config fájlok érzékeny adatokkal (API kulcsok, Telegram token)
+ft_userdata/user_data/config.json
+ft_userdata/user_data/config_rb.json
 
 # Letöltött historikus adatok (nagy méret)
 ft_userdata/user_data/data/*

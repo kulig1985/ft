@@ -7,7 +7,12 @@
       "Bash(cp:*)",
       "Bash(docker compose:*)",
       "Bash(xargs -r docker stop)",
-      "Bash(xargs -r docker rm)"
+      "Bash(xargs -r docker rm)",
+      "WebSearch",
+      "Bash(grep -E \"\\\\.\\(json|py|txt\\)$\")",
+      "WebFetch(domain:www.freqtrade.io)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:cryptocue.io)"
     ]
   }
 }
