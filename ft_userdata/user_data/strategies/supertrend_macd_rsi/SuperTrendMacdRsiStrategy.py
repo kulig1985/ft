@@ -104,6 +104,47 @@ class SuperTrendMacdRsiStrategy(IStrategy):
         stake = float(self.pair_configs.get(pair, {}).get("stake_amount_usd", self.stake_amount_usd))
         return min(stake, max_stake)
 
+    @property
+    def plot_config(self):
+        return {
+            "main_plot": {
+                # SuperTrend vonal (ahol az SL "mozog" amíg nincs trade)
+                "supertrend": {
+                    "color": "#2962FF",
+                    "type": "line",
+                    "width": 2
+                },
+                # Swing pontok = ahol az SL kerül belépéskor
+                "swing_high": {
+                    "color": "#F44336",
+                    "type": "line",
+                    "width": 1
+                },
+                "swing_low": {
+                    "color": "#4CAF50",
+                    "type": "line",
+                    "width": 1
+                },
+            },
+            "subplots": {
+                "RSI": {
+                    "rsi": {
+                        "color": "#9C27B0",
+                        "width": 1
+                    }
+                },
+                "MACD": {
+                    "macd": {"color": "#2196F3"},
+                    "macdsignal": {"color": "#FF9800"},
+                    "macdhist": {
+                        "color": "#B0BEC5",
+                        "type": "bar",
+                        "width": 4
+                    }
+                }
+            }
+        }
+
     def informative_pairs(self):
         # Csak 1H timeframe-et használunk, nincs informative pair
         return []
@@ -237,22 +278,22 @@ class SuperTrendMacdRsiStrategy(IStrategy):
         candle_body_pct = (abs(dataframe["close"] - dataframe["open"]) / dataframe["close"]) * 100
 
         # --- LONG belépési feltételek ---
-        # 1. SuperTrend uptrend (close > SuperTrend → direction == 1)
-        # 2. RSI a küszöb felett
-        # 3. MACD vonal a Signal vonal felett
+        # Csak a trendváltás első gyertyáján lép be:
+        # az előző gyertya DOWN volt, a jelenlegi UP → trendváltás pillanata
         long_cond = (
-            (dataframe["supertrend_direction"] == 1)
+            (dataframe["supertrend_direction"] == 1)           # jelenlegi: uptrend
+            & (dataframe["supertrend_direction"].shift(1) == -1)  # előző: downtrend (váltás!)
             & (dataframe["rsi"] > rsi_thr)
             & (dataframe["macd"] > dataframe["macdsignal"])
             & (dataframe["volume"] > 0)
         )
 
         # --- SHORT belépési feltételek ---
-        # 1. SuperTrend downtrend (close < SuperTrend → direction == -1)
-        # 2. RSI a küszöb alatt
-        # 3. MACD vonal a Signal vonal alatt
+        # Csak a trendváltás első gyertyáján lép be:
+        # az előző gyertya UP volt, a jelenlegi DOWN → trendváltás pillanata
         short_cond = (
-            (dataframe["supertrend_direction"] == -1)
+            (dataframe["supertrend_direction"] == -1)          # jelenlegi: downtrend
+            & (dataframe["supertrend_direction"].shift(1) == 1)   # előző: uptrend (váltás!)
             & (dataframe["rsi"] < (100 - rsi_thr))
             & (dataframe["macd"] < dataframe["macdsignal"])
             & (dataframe["volume"] > 0)
@@ -325,11 +366,23 @@ class SuperTrendMacdRsiStrategy(IStrategy):
         trade.set_custom_data("sl_price", sl_price)
         trade.set_custom_data("tp_price", tp_price)
 
+        direction = "SHORT" if trade.is_short else "LONG"
         logger.info(
             f"SuperTrendMacdRsi | {pair} | "
-            f"{'SHORT' if trade.is_short else 'LONG'} filled @ {entry_price:.6f} | "
+            f"{direction} filled @ {entry_price:.6f} | "
             f"SL={sl_price:.6f} | TP={tp_price:.6f} | "
             f"R={r:.6f} | RR={rr_ratio}"
+        )
+
+        # Telegram értesítés TP/SL szintekkel
+        sl_pct = abs(entry_price - sl_price) / entry_price * 100
+        tp_pct = abs(tp_price - entry_price) / entry_price * 100
+        self.dp.send_msg(
+            f"📊 *{pair}* {direction} #{trade.id}\n"
+            f"Entry: `{entry_price:.4f}` USDC\n"
+            f"🛑 SL: `{sl_price:.4f}` ({sl_pct:.2f}%)\n"
+            f"🎯 TP: `{tp_price:.4f}` ({tp_pct:.2f}%)\n"
+            f"RR: {rr_ratio:.1f}x | Stake: {trade.stake_amount:.1f} USDC"
         )
 
     def custom_stoploss(
