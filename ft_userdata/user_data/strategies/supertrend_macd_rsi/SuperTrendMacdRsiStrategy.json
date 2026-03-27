@@ -1,0 +1,30 @@
+{
+  "strategy_name": "SuperTrendMacdRsiStrategy",
+  "params": {
+    "roi": {
+      "0": 999
+    },
+    "stoploss": {
+      "stoploss": -0.99
+    },
+    "trailing": {
+      "trailing_stop": false,
+      "trailing_stop_positive": null,
+      "trailing_stop_positive_offset": 0.0,
+      "trailing_only_offset_is_reached": false
+    },
+    "max_open_trades": {
+      "max_open_trades": 5
+    },
+    "buy": {
+      "max_candle_size_pct": 2.531,
+      "risk_reward_ratio": 1.502,
+      "rsi_threshold": 47,
+      "supertrend_atr_period": 14,
+      "supertrend_multiplier": 3.981,
+      "swing_lookback": 9
+    }
+  },
+  "ft_stratparam_v": 1,
+  "export_time": "2026-03-27 17:12:24.444056+00:00"
+}

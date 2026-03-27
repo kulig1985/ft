@@ -6,22 +6,29 @@ Ez a fájl útmutatást ad a Claude Code (claude.ai/code) számára a repository
 
 Freqtrade kereskedési platform Docker-alapú konfigurációja. Két használati mód:
 - **Lokális (macOS)**: Backtesting, plotting, stratégia fejlesztés
-- **VPS (Ubuntu)**: Live/dry-run trading (`freqtrade.kebodev.hu`)
+- **VPS (Ubuntu)**: Live/dry-run trading (`freqtrade.kebodev.hu`, `freqtrade-rb.kebodev.hu`)
 
 ## Munkakönyvtár struktúra
 
+Minden stratégiának saját almappája van `user_data/strategies/` alatt, saját `.env`, `config.json`, logok és DB-vel. A historikus adatok (`data/`) közösek.
+
 ```
 ft/
-├── ft_userdata/
-│   ├── docker-compose.yml      # Freqtrade konténer definíció
-│   ├── .env                    # Érzékeny adatok (NEM COMMITOLNI!)
-│   ├── .env.example            # Környezeti változók sablon
-│   └── user_data/
-│       ├── config.json         # Freqtrade konfiguráció
-│       ├── strategies/         # Kereskedési stratégiák Python fájljai
-│       ├── data/               # Historikus árfolyam adatok
-│       ├── logs/               # Log fájlok
-│       └── notebooks/          # Jupyter notebook-ok elemzéshez
+└── ft_userdata/
+    ├── docker-compose.yml
+    └── user_data/
+        ├── data/                               # Közös historikus adatok
+        └── strategies/
+            ├── bb_rsi_adx/                     # BBRsiAdxStrategy
+            │   ├── .env                        # Saját Telegram token (NEM GITBE!)
+            │   ├── config.json                 # Saját konfig (NEM GITBE!)
+            │   ├── BBRsiAdxStrategy.py
+            │   └── logs/
+            └── range_breakout/                 # RangeBreakoutPullbackStrategy
+                ├── .env
+                ├── config.json
+                ├── RangeBreakoutPullbackStrategy.py
+                └── logs/
 ```
 
 ## Gyakori parancsok
@@ -30,71 +37,50 @@ Minden parancsot a `ft_userdata/` könyvtárból futtass!
 
 ### Konténer kezelés
 ```bash
-docker compose up -d              # Indítás háttérben
-docker compose down               # Leállítás
-docker compose restart            # Újraindítás
-docker compose logs -f            # Logok követése
-docker compose ps                 # Állapot ellenőrzése
+docker compose up -d                    # Összes indítás
+docker compose up -d freqtrade_bb       # Csak egy stratégia
+docker compose down                     # Leállítás
+docker compose restart freqtrade_rb     # Egy stratégia újraindítása
+docker compose logs -f freqtrade_bb     # Egy stratégia logja
+docker compose ps                       # Állapot
 docker compose pull && docker compose up -d  # Frissítés
 ```
 
 ### FreqUI Webserver mód (Backtesting UI-val)
 ```bash
-docker compose run --rm -p 8080:8080 freqtrade webserver --config user_data/config.json.orignal
+docker compose run --rm -p 8080:8080 freqtrade_bb webserver \
+  --config user_data/strategies/bb_rsi_adx/config.json.orignal
 ```
-Elérhető: http://localhost:8080 - backtesting, plotting, adat letöltés böngészőből.
 
 ### Backtesting (parancssor)
 ```bash
-docker compose run --rm freqtrade backtesting \
-  --config user_data/config.json.orignal \
-  --strategy StrategiaNeved \
+docker compose run --rm freqtrade_bb backtesting \
+  --config user_data/strategies/bb_rsi_adx/config.json.orignal \
+  --strategy BBRsiAdxStrategy \
   --timerange 20230101-20231231 \
-  -i 5m
+  -i 1h
 ```
 
-### Adat letöltés
+### Adat letöltés (közös data/ mappába)
 ```bash
-docker compose run --rm freqtrade download-data \
+docker compose run --rm freqtrade_bb download-data \
   --pairs ETH/USDT BTC/USDT \
   --exchange binance \
   --days 30 \
   -t 5m 1h 1d
 ```
 
-### Stratégiák listázása
-```bash
-docker compose run --rm freqtrade list-strategies
-```
-
-### Konfiguráció ellenőrzése
-```bash
-docker compose run --rm freqtrade show-config --config user_data/config.json.orignal
-```
-
-### Új konfiguráció generálása
-```bash
-docker compose run --rm freqtrade new-config --config user_data/config.json.orignal
-```
-
-### Plotting
-```bash
-docker compose run --rm freqtrade plot-dataframe \
-  --strategy StrategiaNeved \
-  -p BTC/USDT \
-  --timerange 20240101-20240115
-```
-Kimenet: `user_data/plot/` (HTML fájl)
-
 ## Konfiguráció
 
-- **Stratégia módosítás**: `docker-compose.yml` fájlban a `--strategy` paraméter
-- **Exchange API kulcsok**: `.env` fájlban (lásd `.env.example` sablont)
-- **API szerver (FreqUI)**: `user_data/config.json` - `api_server` szekció
+- **Stratégia konfig**: `user_data/strategies/<nev>/config.json` (NEM megy gitbe)
+- **Érzékeny adatok**: `user_data/strategies/<nev>/.env` (NEM megy gitbe)
+- **Docker service-ek**: `docker-compose.yml` - konténerenként saját .env és config
+- `.env` felülírja a `config.json` értékeket
 
 ## Architektúra
 
-- Freqtrade hivatalos Docker image: `freqtradeorg/freqtrade:stable`
-- GPU támogatás (FreqAI): `freqtradeorg/freqtrade:stable_freqaitorch` image
-- API szerver: localhost:8080-on fut, Caddy reverse proxy biztosítja a HTTPS-t
-- Adatbázis: SQLite (`user_data/tradesv3.sqlite`)
+- Freqtrade Docker image: `freqtradeorg/freqtrade:stable`
+- Stratégiánként külön konténer, külön port, külön Telegram bot, külön DB
+- BBRsiAdx: localhost:8080 / freqtrade.kebodev.hu
+- RangeBreakout: localhost:8081 / freqtrade-rb.kebodev.hu
+- Caddy reverse proxy biztosítja a HTTPS-t (VPS-en)

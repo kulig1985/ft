@@ -1,0 +1,92 @@
+{
+  "ETH/USDC:USDC": {
+     "max_candle_size_pct": 3.249,
+     "risk_reward_ratio": 1.082,
+     "rsi_threshold": 59,
+     "supertrend_atr_period": 19,
+     "supertrend_multiplier": 3.284,
+     "swing_lookback": 10,
+     "stake_amount_usd": 10.0
+  },
+  "SOL/USDC:USDC": {
+    "max_candle_size_pct": 1.227,
+    "risk_reward_ratio": 1.019,
+    "rsi_threshold": 60,
+    "supertrend_atr_period": 17,
+    "supertrend_multiplier": 3.825,
+    "swing_lookback": 16,
+    "stake_amount_usd": 10.0
+  },
+  "ARB/USDC:USDC": {
+    "max_candle_size_pct": 2.937,
+    "risk_reward_ratio": 1.448,
+    "rsi_threshold": 50,
+    "supertrend_atr_period": 11,
+    "supertrend_multiplier": 3.096,
+    "swing_lookback": 6,
+    "stake_amount_usd": 10.0
+  },
+  "AVAX/USDC:USDC": {
+     "max_candle_size_pct": 0.965,
+    "risk_reward_ratio": 1.968,
+    "rsi_threshold": 53,
+    "supertrend_atr_period": 18,
+    "supertrend_multiplier": 2.648,
+    "swing_lookback": 14,
+    "stake_amount_usd": 10.0
+  },
+  "TIA/USDC:USDC": {
+    "max_candle_size_pct": 4.667,
+    "risk_reward_ratio": 1.631,
+    "rsi_threshold": 50,
+    "supertrend_atr_period": 16,
+    "supertrend_multiplier": 2.396,
+    "swing_lookback": 16,
+    "stake_amount_usd": 10.0
+  },
+  "SUI/USDC:USDC": {
+    "max_candle_size_pct": 3.471,
+    "risk_reward_ratio": 1.381,
+    "rsi_threshold": 52,
+    "supertrend_atr_period": 18,
+    "supertrend_multiplier": 3.158,
+    "swing_lookback": 6,
+    "stake_amount_usd": 10.0
+  },
+  "BTC/USDC:USDC": {
+    "max_candle_size_pct": 3.858,
+    "risk_reward_ratio": 2.94,
+    "rsi_threshold": 51,
+    "supertrend_atr_period": 17,
+    "supertrend_multiplier": 1.659,
+    "swing_lookback": 10,
+    "stake_amount_usd": 10.0
+  },
+  "DOGE/USDC:USDC": {
+    "max_candle_size_pct": 4.796,
+    "risk_reward_ratio": 2.346,
+    "rsi_threshold": 52,
+    "supertrend_atr_period": 19,
+    "supertrend_multiplier": 3.569,
+    "swing_lookback": 18,
+    "stake_amount_usd": 10.0
+  },
+  "LTC/USDC:USDC": {
+    "max_candle_size_pct": 1.916,
+    "risk_reward_ratio": 2.972,
+    "rsi_threshold": 45,
+    "supertrend_atr_period": 12,
+    "supertrend_multiplier": 1.926,
+    "swing_lookback": 12,
+    "stake_amount_usd": 10.0
+  },
+  "XRP/USDC:USDC": {
+    "max_candle_size_pct": 2.531,
+    "risk_reward_ratio": 1.502,
+    "rsi_threshold": 47,
+    "supertrend_atr_period": 14,
+    "supertrend_multiplier": 3.981,
+    "swing_lookback": 9,
+    "stake_amount_usd": 10.0
+  }
+}

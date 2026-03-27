@@ -4,38 +4,56 @@ Ez a dokumentáció leírja, hogyan telepíthető és konfigurálható a Freqtra
 
 ## Mappastruktúra
 
+Minden stratégiának saját almappája van a `user_data/strategies/` alatt, saját `.env`, `config.json`, logok és adatbázis. A historikus adatok (`user_data/data/`) közösek.
+
 ```
 ft/
-├── DOCKER-SETUP.md
-├── CLAUDE.md
 └── ft_userdata/
     ├── docker-compose.yml
-    ├── .env                    # API kulcsok (NE COMMITOLD!)
-    ├── .env.example
     └── user_data/
-        ├── config.json         # Freqtrade konfiguráció
-        ├── strategies/         # Kereskedési stratégiák (.py fájlok)
-        ├── data/               # Historikus adatok
-        ├── logs/               # Log fájlok
-        ├── backtest_results/   # Backtest eredmények
-        ├── plot/               # Plot kimenet
-        └── notebooks/          # Jupyter notebook-ok
+        ├── data/                                 # Közös historikus adatok
+        ├── strategies/
+        │   ├── bb_rsi_adx/                       # BBRsiAdxStrategy
+        │   │   ├── .env                          # Saját Telegram token, API kulcsok (NEM GITBE!)
+        │   │   ├── .env.example
+        │   │   ├── config.json                   # Saját konfig (NEM GITBE!)
+        │   │   ├── config.json.orignal            # Backtest konfig
+        │   │   ├── BBRsiAdxStrategy.py
+        │   │   ├── BBRsiAdxStrategy.json
+        │   │   ├── pair_configs.json
+        │   │   ├── logs/
+        │   │   └── tradesv3.sqlite               # Saját DB (generálódik)
+        │   └── range_breakout/                   # RangeBreakoutPullbackStrategy
+        │       ├── .env
+        │       ├── .env.example
+        │       ├── config.json
+        │       ├── config.json.orignal
+        │       ├── RangeBreakoutPullbackStrategy.py
+        │       ├── RangeBreakoutPullbackStrategy.json
+        │       ├── rb_pair_configs.json
+        │       ├── logs/
+        │       └── tradesv3.sqlite
+        └── ...
 ```
 
-A stratégiák közvetlenül a `user_data/strategies/` mappába kerülnek - nincs szükség külön git repo-ra.
+Mindkét konténer a teljes `user_data/`-t mountolja, de saját config-ra és .env-re mutat. Így a `data/` mappa közös (elég egyszer letölteni), de a Telegram bot, adatbázis és logok stratégiánként elkülönülnek.
 
 ---
 
 ## Konfiguráció Felépítése
 
-A projekt két konfigurációs fájlt használ:
+Stratégiánként két konfigurációs réteg:
 
 | Fájl | Tartalom | Git-be kerül? |
 |------|----------|---------------|
-| `config.json` | Általános beállítások (párok, stratégia, stb.) | **IGEN** |
-| `.env` | Érzékeny adatok (tokenek, jelszavak) | **NEM** |
+| `strategies/<nev>/config.json` | Kereskedési beállítások | **NEM** |
+| `strategies/<nev>/.env` | Telegram token, Exchange kulcsok, FreqUI jelszó | **NEM** |
+| `strategies/<nev>/.env.example` | `.env` sablon | **IGEN** |
+| `strategies/<nev>/*.py` | Stratégia kód | **IGEN** |
 
 **A `.env` fájl környezeti változói FELÜLÍRJÁK a `config.json` értékeit!**
+
+Minden konténernek saját `.env` fájlja van, így **eltérő Telegram botokat** lehet használni stratégiánként.
 
 ---
 
@@ -51,18 +69,14 @@ Töltsd le és telepítsd a [Docker Desktop for Mac](https://docs.docker.com/doc
 git clone -b develop https://github.com/kulig1985/ft.git
 cd ft/ft_userdata
 
-# .env fájl létrehozása a példa alapján
-cp .env.example .env
+# .env fájlok létrehozása stratégiánként
+cp user_data/strategies/bb_rsi_adx/.env.example user_data/strategies/bb_rsi_adx/.env
+cp user_data/strategies/range_breakout/.env.example user_data/strategies/range_breakout/.env
 
-# .env szerkesztése - töltsd ki a valós értékeket!
-nano .env   # vagy: code .env
+# Szerkesztés - töltsd ki a valós értékeket!
+nano user_data/strategies/bb_rsi_adx/.env
+nano user_data/strategies/range_breakout/.env
 ```
-
-A `.env` fájlban töltsd ki:
-- `FREQTRADE__TELEGRAM__TOKEN` - Telegram bot token (@BotFather-től)
-- `FREQTRADE__TELEGRAM__CHAT_ID` - Chat ID (@userinfobot-tól)
-- `FREQTRADE__API_SERVER__USERNAME` - FreqUI felhasználónév
-- `FREQTRADE__API_SERVER__PASSWORD` - FreqUI jelszó
 
 ### 3. Image Letöltése
 
@@ -72,85 +86,53 @@ docker compose pull
 
 ### 4. FreqUI Webserver Mód (Backtesting UI-val)
 
-A `webserver` mód lehetővé teszi a backtesting futtatását közvetlenül a böngészőből:
-
 ```bash
-docker compose run --rm -p 8080:8080 freqtrade webserver --config user_data/config.json.orignal
+# BBRsiAdx stratégiához:
+docker compose run --rm -p 8080:8080 freqtrade_bb webserver \
+  --config user_data/strategies/bb_rsi_adx/config.json.orignal
+
+# RangeBreakout stratégiához:
+docker compose run --rm -p 8080:8080 freqtrade_rb webserver \
+  --config user_data/strategies/range_breakout/config.json.orignal
 ```
 
 FreqUI elérhető: **http://localhost:8080**
 
-Bejelentkezés: a `.env` fájlban megadott `USERNAME` és `PASSWORD` párossal.
-
-A webserver módban elérhető:
-- Backtesting futtatás és vizualizáció
-- Adat letöltés
-- Pairlist tesztelés
-- Korábbi backtest eredmények betöltése
-
-### 4. Backtesting Parancssorból
+### 5. Backtesting Parancssorból
 
 ```bash
-# Adat letöltése (először!)
-docker compose run --rm freqtrade download-data \
+# Adat letöltése (közös data/ mappába kerül)
+docker compose run --rm freqtrade_bb download-data \
   --pairs ETH/USDT BTC/USDT \
   --exchange binance \
   --days 30 \
   -t 5m 1h
 
-# Backtesting futtatása
-docker compose run --rm freqtrade backtesting \
-  --config user_data/config.json.orignal \
-  --strategy MyStrategy \
+# Backtesting - BBRsiAdx
+docker compose run --rm freqtrade_bb backtesting \
+  --config user_data/strategies/bb_rsi_adx/config.json.orignal \
+  --strategy BBRsiAdxStrategy \
+  --timerange 20240101-20240201 \
+  -i 1h
+
+# Backtesting - RangeBreakout
+docker compose run --rm freqtrade_rb backtesting \
+  --config user_data/strategies/range_breakout/config.json.orignal \
+  --strategy RangeBreakoutPullbackStrategy \
   --timerange 20240101-20240201 \
   -i 5m
-
-# Több stratégia összehasonlítása
-docker compose run --rm freqtrade backtesting \
-  --strategy-list Strategy1 Strategy2 \
-  --timerange 20240101-20240201
-
-# Havi/éves bontás
-docker compose run --rm freqtrade backtesting \
-  --strategy MyStrategy \
-  --breakdown month year
 ```
-
-### 5. Plotting
-
-```bash
-# Profit plot
-docker compose run --rm freqtrade plot-profit \
-  --strategy MyStrategy
-
-# Dataframe plot (indikátorokkal)
-docker compose run --rm freqtrade plot-dataframe \
-  --strategy MyStrategy \
-  -p BTC/USDT \
-  --timerange 20240101-20240115
-```
-
-A kimenet a `user_data/plot/` mappában lesz, böngészőben megnyitható HTML fájlként.
 
 ### 6. Hyperopt (Paraméter Optimalizálás)
 
 ```bash
-docker compose run --rm freqtrade hyperopt \
-  --config user_data/config.json.orignal \
-  --strategy MyStrategy \
+docker compose run --rm freqtrade_bb hyperopt \
+  --config user_data/strategies/bb_rsi_adx/config.json.orignal \
+  --strategy BBRsiAdxStrategy \
   --hyperopt-loss SharpeHyperOptLoss \
   --spaces buy sell \
   -e 100
 ```
-
-### 7. Jupyter Notebook
-
-```bash
-# Jupyter Lab indítása
-docker compose -f docker-compose-jupyter.yml up
-```
-
-Elérhető: **http://127.0.0.1:8888/lab**
 
 ---
 
@@ -159,7 +141,7 @@ Elérhető: **http://127.0.0.1:8888/lab**
 ### Előfeltételek
 
 - Ubuntu VPS (20.04+)
-- Domain DNS beállítva: `freqtrade.kebodev.hu` -> VPS IP
+- Domain DNS beállítva: `freqtrade.kebodev.hu` és `freqtrade-rb.kebodev.hu` -> VPS IP
 
 ### 1. Docker Telepítése
 
@@ -180,47 +162,21 @@ sudo apt update
 sudo apt install caddy
 ```
 
-### 3. Projekt Klónozása
+### 3. Projekt Klónozása és .env Beállítása
 
 ```bash
 git clone -b develop https://github.com/kulig1985/ft.git
 cd ft/ft_userdata
 
-# .env fájl létrehozása
-cp .env.example .env
-nano .env  # API kulcsok kitöltése
+# .env fájlok létrehozása (mindegyik stratégiához saját Telegram token!)
+cp user_data/strategies/bb_rsi_adx/.env.example user_data/strategies/bb_rsi_adx/.env
+cp user_data/strategies/range_breakout/.env.example user_data/strategies/range_breakout/.env
+
+nano user_data/strategies/bb_rsi_adx/.env
+nano user_data/strategies/range_breakout/.env
 ```
 
-### 4. Konfiguráció
-
-```bash
-docker compose pull
-docker compose run --rm freqtrade new-config --config user_data/config.json.orignal
-```
-
-A `config.json`-ban módosítsd az API szervert:
-
-```json
-{
-    "api_server": {
-        "enabled": true,
-        "listen_ip_address": "0.0.0.0",
-        "listen_port": 8080,
-        "verbosity": "error",
-        "jwt_secret_key": "GENERALT_RANDOM_STRING",
-        "CORS_origins": ["https://freqtrade.kebodev.hu"],
-        "username": "admin",
-        "password": "EROSJELSZO123!"
-    }
-}
-```
-
-Token generálás:
-```bash
-python3 -c "import secrets; print('jwt_secret_key:', secrets.token_hex(32))"
-```
-
-### 5. Caddy Konfiguráció
+### 4. Caddy Konfiguráció
 
 ```bash
 sudo nano /etc/caddy/Caddyfile
@@ -230,32 +186,73 @@ sudo nano /etc/caddy/Caddyfile
 freqtrade.kebodev.hu {
     reverse_proxy localhost:8080
 }
+
+freqtrade-rb.kebodev.hu {
+    reverse_proxy localhost:8081
+}
 ```
 
 ```bash
 sudo systemctl reload caddy
 ```
 
-### 6. Freqtrade Indítása (Live/Dry-run)
+### 5. Freqtrade Indítása
 
-A `docker-compose.yml`-ben állítsd be a stratégiát:
+```bash
+docker compose pull
+docker compose up -d
+
+# Logok
+docker compose logs -f
+docker compose logs -f freqtrade_bb
+docker compose logs -f freqtrade_rb
+```
+
+**FreqUI elérés:**
+- BBRsiAdx: **https://freqtrade.kebodev.hu**
+- RangeBreakout: **https://freqtrade-rb.kebodev.hu**
+
+---
+
+## Új Stratégia Hozzáadása
+
+```bash
+cd ft/ft_userdata
+
+# 1. Mappa létrehozása
+mkdir -p user_data/strategies/uj_strategia/logs
+
+# 2. Stratégia fájl elhelyezése
+cp /path/to/UjStrategia.py user_data/strategies/uj_strategia/
+
+# 3. .env és config létrehozása (meglévőből másolva, módosítva)
+cp user_data/strategies/bb_rsi_adx/.env.example user_data/strategies/uj_strategia/.env.example
+cp user_data/strategies/uj_strategia/.env.example user_data/strategies/uj_strategia/.env
+cp user_data/strategies/bb_rsi_adx/config.json user_data/strategies/uj_strategia/config.json
+nano user_data/strategies/uj_strategia/.env
+nano user_data/strategies/uj_strategia/config.json
+```
+
+A `docker-compose.yml`-be add hozzá:
 
 ```yaml
-command: >
-  trade
-  --logfile /freqtrade/user_data/logs/freqtrade.log
-  --db-url sqlite:////freqtrade/user_data/tradesv3.sqlite
-  --config /freqtrade/user_data/config.json
-  --strategy MyStrategy
+  freqtrade_uj:
+    image: freqtradeorg/freqtrade:stable
+    restart: unless-stopped
+    container_name: freqtrade_uj
+    volumes:
+      - "./user_data:/freqtrade/user_data"
+    ports:
+      - "127.0.0.1:8082:8080"
+    env_file:
+      - ./user_data/strategies/uj_strategia/.env
+    command: >
+      trade
+      --logfile /freqtrade/user_data/strategies/uj_strategia/logs/freqtrade.log
+      --db-url sqlite:////freqtrade/user_data/strategies/uj_strategia/tradesv3.sqlite
+      --config /freqtrade/user_data/strategies/uj_strategia/config.json
+      --strategy UjStrategia
 ```
-
-Indítás:
-```bash
-docker compose up -d
-docker compose logs -f
-```
-
-FreqUI: **https://freqtrade.kebodev.hu**
 
 ---
 
@@ -265,254 +262,54 @@ FreqUI: **https://freqtrade.kebodev.hu**
 # Konténer állapot
 docker compose ps
 
-# Logok
+# Összes log
 docker compose logs -f
+
+# Egy stratégia logja
+docker compose logs -f freqtrade_bb
 
 # Leállítás
 docker compose down
 
-# Újraindítás
-docker compose restart
+# Csak egy stratégia újraindítása
+docker compose restart freqtrade_bb
 
 # Frissítés
 docker compose pull && docker compose up -d
 
 # Stratégiák listázása
-docker compose run --rm freqtrade list-strategies
+docker compose run --rm freqtrade_bb list-strategies
 
 # Konfiguráció ellenőrzése
-docker compose run --rm freqtrade show-config --config user_data/config.json.orignal
+docker compose run --rm freqtrade_bb show-config \
+  --config user_data/strategies/bb_rsi_adx/config.json
 ```
-
----
-
-## Konfiguráció Újratöltése
-
-**FONTOS:** A `config.json` módosítása után MINDIG újra kell indítani/tölteni a botot!
-
-### Webserver módban (lokális fejlesztés)
-```bash
-# Állítsd le a futó webservert (Ctrl+C), majd indítsd újra:
-docker compose run --rm -p 8080:8080 freqtrade webserver --config user_data/config.json.orignal
-```
-
-### Trade módban (VPS)
-```bash
-# Újraindítás (leállít és újraindít)
-docker compose restart
-
-# VAGY teljes újraépítés
-docker compose down
-docker compose up -d
-```
-
-### Konfiguráció ellenőrzése
-```bash
-# Ellenőrizd, hogy a konfiguráció helyes-e
-docker compose run --rm freqtrade show-config --config user_data/config.json.orignal
-```
-
----
-
-## Pairlist Beállítása
-
-A `config.json`-ban az `exchange` és `pairlists` szekciókban állítsd be a kereskedési párokat.
-
-### Opció 1: StaticPairList (fix párok)
-
-```json
-{
-    "exchange": {
-        "name": "binance",
-        "key": "",
-        "secret": "",
-        "ccxt_config": {},
-        "ccxt_async_config": {},
-        "pair_whitelist": [
-            "BTC/USDC",
-            "ETH/USDC",
-            "SOL/USDC",
-            "ARB/USDC",
-            "TIA/USDC",
-            "ADA/USDC",
-            "AVAX/USDC",
-            "DOGE/USDC"
-        ],
-        "pair_blacklist": [
-            "BNB/.*"
-        ]
-    },
-    "pairlists": [
-        {"method": "StaticPairList"}
-    ]
-}
-```
-
-### Opció 2: VolumePairList (dinamikus, volumen alapján)
-
-```json
-{
-    "exchange": {
-        "name": "binance",
-        "key": "",
-        "secret": "",
-        "ccxt_config": {},
-        "ccxt_async_config": {},
-        "pair_whitelist": [],
-        "pair_blacklist": [
-            "BNB/.*"
-        ]
-    },
-    "pairlists": [
-        {
-            "method": "VolumePairList",
-            "number_assets": 20,
-            "sort_key": "quoteVolume",
-            "min_value": 0,
-            "refresh_period": 1800
-        }
-    ]
-}
-```
-
-**Megjegyzés:** `VolumePairList` esetén a `pair_whitelist` üres lehet - a bot automatikusan a top 20 legnagyobb volumenű párt választja ki.
-
-### Opció 3: Kombinált (VolumePairList + whitelist szűrés)
-
-Ha csak bizonyos párokból akarsz választani volumen alapján:
-
-```json
-{
-    "exchange": {
-        "pair_whitelist": [
-            "BTC/USDC",
-            "ETH/USDC",
-            "SOL/USDC",
-            "ARB/USDC",
-            "TIA/USDC",
-            "ADA/USDC",
-            "AVAX/USDC",
-            "DOGE/USDC"
-        ],
-        "pair_blacklist": ["BNB/.*"]
-    },
-    "pairlists": [
-        {"method": "StaticPairList"},
-        {
-            "method": "VolumePairList",
-            "number_assets": 8,
-            "sort_key": "quoteVolume",
-            "refresh_period": 1800
-        }
-    ]
-}
-```
-
-A FreqUI "Download Data" felületén az **"Add all pairs from pairlist"** gomb a fenti párok alapján fog működni.
-
-**Konfiguráció módosítása után ne felejtsd el újraindítani a botot!**
 
 ---
 
 ## Telegram Bot Beállítása
 
-### 1. Bot Létrehozása
+Stratégiánként **külön Telegram bot** szükséges (eltérő tokenek).
 
-1. Nyisd meg a Telegram-ot és keresd meg a [@BotFather](https://telegram.me/BotFather)-t
-2. Küldj üzenetet: `/newbot`
-3. Add meg a bot nevét (pl. `Freqtrade Bot`)
-4. Add meg a bot username-jét (pl. `my_freqtrade_bot`) - **kötelezően `bot`-ra kell végződnie!**
-5. **Mentsd el a kapott API TOKEN-t** (pl. `1234567890:ABCdefGHIjklMNOpqrsTUVwxyz`)
+### Bot Létrehozása
 
-**BIZTONSÁGI FIGYELMEZTETÉS:** A Telegram tokent SOHA ne oszd meg, ne commitold git-be! Ha véletlenül kikerült, azonnal érvénytelenítsd: @BotFather → `/revoke` → `/token`
+1. [@BotFather](https://telegram.me/BotFather) → `/newbot` → mentsd a tokent
+2. [@userinfobot](https://telegram.me/userinfobot) → mentsd a chat ID-t
+3. Nyisd meg a botot és nyomd meg a `/start` gombot
 
-### 2. Chat ID Lekérése
+### Konfiguráció
 
-1. Keresd meg a [@userinfobot](https://telegram.me/userinfobot)-ot
-2. Küldj neki bármit (pl. "hello")
-3. **Mentsd el az "Id" értéket** (pl. `123456789`)
-
-### 3. Bot Aktiválása
-
-**FONTOS:** Nyisd meg a saját botodat a Telegram-ban és nyomd meg a `/start` gombot! Enélkül a bot nem tud üzenetet küldeni neked.
-
-### 4. Konfiguráció
-
-Add hozzá a `config.json`-hoz:
-
-```json
-{
-    "telegram": {
-        "enabled": true,
-        "token": "IDE_A_TE_TOKENED",
-        "chat_id": "IDE_A_TE_CHAT_ID",
-        "notification_settings": {
-            "status": "on",
-            "warning": "on",
-            "startup": "on",
-            "entry": "on",
-            "entry_fill": "on",
-            "exit": "on",
-            "exit_fill": "on"
-        }
-    }
-}
-```
-
-**Vagy használd a `.env` fájlt** (AJÁNLOTT - biztonságosabb):
+Minden stratégia `.env` fájljába a saját tokent írd:
 
 ```bash
-# .env fájlban
-FREQTRADE__TELEGRAM__TOKEN=ide_a_te_tokened
-FREQTRADE__TELEGRAM__CHAT_ID=ide_a_te_chat_id
-FREQTRADE__TELEGRAM__ENABLED=true
+# user_data/strategies/bb_rsi_adx/.env
+FREQTRADE__TELEGRAM__TOKEN=111111:AAA_bb_bot_token
+FREQTRADE__TELEGRAM__CHAT_ID=588528102
+
+# user_data/strategies/range_breakout/.env
+FREQTRADE__TELEGRAM__TOKEN=222222:BBB_rb_bot_token
+FREQTRADE__TELEGRAM__CHAT_ID=588528102
 ```
-
-### 5. Telegram Aktiválás Ellenőrzése
-
-```bash
-# Indítsd újra a botot
-docker compose restart
-
-# Ellenőrizd a logokat - sikeres kapcsolat esetén látod:
-docker compose logs -f | grep -i telegram
-```
-
-Sikeres kapcsolat esetén a bot üzenetet küld a Telegram chatbe.
-
-### 6. Telegram Parancsok
-
-| Parancs | Leírás |
-|---------|--------|
-| `/start` | Bot indítása (trading engedélyezése) |
-| `/stop` | Bot leállítása |
-| `/pause` | Új pozíciók tiltása (meglévők maradnak) |
-| `/status` | Nyitott pozíciók listázása |
-| `/status table` | Pozíciók táblázatos formában |
-| `/profit` | Profit összesítés |
-| `/balance` | Egyenleg |
-| `/daily` | Napi profit (utolsó 7 nap) |
-| `/weekly` | Heti profit |
-| `/forceexit <trade_id>` | Pozíció azonnali zárása |
-| `/forceexit all` | Összes pozíció zárása |
-| `/reload_config` | Konfiguráció újratöltése |
-| `/whitelist` | Aktív párok listázása |
-| `/blacklist` | Tiltott párok listázása |
-| `/help` | Összes parancs listázása |
-
-### 7. Hibaelhárítás
-
-**A bot nem küld üzenetet:**
-1. Ellenőrizd, hogy megnyomtad-e a `/start` gombot a botodban
-2. Ellenőrizd a token és chat_id helyességét
-3. Nézd meg a logokat: `docker compose logs -f | grep -i telegram`
-4. Próbáld újraindítani: `docker compose restart`
-
-**"Unauthorized" hiba:**
-- A token hibás - ellenőrizd a @BotFather-nél
-
-**"Chat not found" hiba:**
-- A chat_id hibás - ellenőrizd a @userinfobot-nál
 
 ---
 
@@ -520,9 +317,9 @@ Sikeres kapcsolat esetén a bot üzenetet küld a Telegram chatbe.
 
 | | Lokális (macOS) | VPS (Ubuntu) |
 |---|-----------------|--------------|
-| FreqUI URL | http://localhost:8080 | https://freqtrade.kebodev.hu |
+| FreqUI URL | http://localhost:8080 / :8081 | https://freqtrade.kebodev.hu / freqtrade-rb.kebodev.hu |
 | Caddy | Nem kell | Kell (HTTPS) |
 | .env (API kulcsok) | Nem kell backtesthez | Kell live tradinghez |
 | config.json `dry_run` | `true` | `false` (éles kereskedés) |
-| Telegram | Opcionális | Ajánlott |
-| Használat | Backtesting, fejlesztés, plotting | Live/dry-run trading |
+| Telegram | Opcionális | Ajánlott (stratégiánként külön bot) |
+| Használat | Backtesting, fejlesztés | Live/dry-run trading |

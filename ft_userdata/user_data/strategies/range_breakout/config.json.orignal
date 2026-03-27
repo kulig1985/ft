@@ -4,7 +4,7 @@
     "stake_currency": "USDC",
     "stake_amount": 20,
     "tradable_balance_ratio": 0.99,
-    "fiat_display_currency": "",
+    "fiat_display_currency": "USD",
     "dry_run": true,
     "dry_run_wallet": 1000,
     "cancel_open_orders_on_exit": false,
@@ -38,10 +38,16 @@
         "ccxt_config": {},
         "ccxt_async_config": {},
         "pair_whitelist": [
+            //"BTC/USDC:USDC",
             "ETH/USDC:USDC",
             "SOL/USDC:USDC",
             "ARB/USDC:USDC",
-            "AVAX/USDC:USDC"
+            //"TIA/USDC:USDC",
+            //"ADA/USDC:USDC",
+            "AVAX/USDC:USDC",
+            "DOGE/USDC:USDC"
+            //"OP/USDT:USDT",
+            //"CFX/USDT:USDT"
         ],
         "pair_blacklist": [
             "BNB/.*"
@@ -52,8 +58,8 @@
     ],
     "telegram": {
         "enabled": true,
-        "token": "8619217804:AAHSZzHylypI_jQ7BWuBJAtv82tVXPpIbYQ",
-        "chat_id": "588528102"
+        "token": "TELEGRAM_TOKEN_REMOVED",
+        "chat_id": "CHAT_ID_REMOVED"
     },
     "api_server": {
         "enabled": true,

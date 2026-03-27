@@ -6,19 +6,28 @@
 .DS_Store
 Thumbs.db
 
-# Érzékeny adatok
-ft_userdata/.env
+# Python
+/.venv
 
-# Freqtrade adatok
-ft_userdata/user_data/tradesv3.sqlite
-ft_userdata/user_data/tradesv3.sqlite-journal
-ft_userdata/user_data/tradesv3-rb.sqlite
-ft_userdata/user_data/tradesv3-rb.sqlite-journal
-ft_userdata/user_data/logs/*.log
+# Érzékeny adatok - stratégiánkénti .env fájlok
+ft_userdata/.env
+ft_userdata/user_data/strategies/**/.env
 
 # Config fájlok érzékeny adatokkal (API kulcsok, Telegram token)
-ft_userdata/user_data/config.json
-ft_userdata/user_data/config_rb.json
+ft_userdata/user_data/strategies/**/config.json
+
+# Freqtrade adatbázisok (stratégiánként)
+ft_userdata/user_data/strategies/**/tradesv3.sqlite
+ft_userdata/user_data/strategies/**/tradesv3.sqlite-journal
+ft_userdata/user_data/strategies/**/tradesv3.sqlite-shm
+ft_userdata/user_data/strategies/**/tradesv3.sqlite-wal
+
+# Régi helyen lévő DB-k
+ft_userdata/user_data/tradesv3*.sqlite*
+
+# Log fájlok
+ft_userdata/user_data/strategies/**/logs/*.log
+ft_userdata/user_data/logs/*.log
 
 # Letöltött historikus adatok (nagy méret)
 ft_userdata/user_data/data/*
@@ -26,12 +35,15 @@ ft_userdata/user_data/data/*
 
 # Hyperopt eredmények
 ft_userdata/user_data/hyperopt_results/
+ft_userdata/user_data/strategies/**/hyperopt_results/
 
 # FreqAI modellek
 ft_userdata/user_data/models/
+ft_userdata/user_data/freqaimodels/
 
 # Backtest eredmények
 ft_userdata/user_data/backtest_results/
+ft_userdata/user_data/strategies/**/backtest_results/
 
 # Plot fájlok
 ft_userdata/user_data/plot/
@@ -39,7 +51,8 @@ ft_userdata/user_data/plot/
 # Jupyter checkpoints
 ft_userdata/user_data/notebooks/.ipynb_checkpoints/
 
+# Hyperopt lock
+ft_userdata/user_data/hyperopt.lock
+
 # .gitkeep fájlok megtartása
 !**/.gitkeep
-/.venv
-ft_userdata/user_data/config.json
