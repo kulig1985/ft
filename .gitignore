@@ -9,20 +9,27 @@ Thumbs.db
 # Python
 /.venv
 
-# Érzékeny adatok - stratégiánkénti .env fájlok
+# ============================================================
+# Stratégia mappákban CSAK a .py fájlok szinkronizálódnak!
+# Minden más (config, pair_configs, .env, stb.) VPS-specifikus.
+# ============================================================
+
+# Érzékeny adatok
 ft_userdata/.env
 ft_userdata/user_data/strategies/**/.env
 
-# Config fájlok érzékeny adatokkal (API kulcsok, Telegram token)
-ft_userdata/user_data/strategies/**/config.json
+# Minden JSON és YAML a stratégia mappákban (config, pair_configs, hyperopt results)
+ft_userdata/user_data/strategies/**/*.json
+ft_userdata/user_data/strategies/**/*.json.orignal
 
-# Freqtrade adatbázisok (stratégiánként)
+# .env.example fájlok (VPS-en saját van)
+ft_userdata/user_data/strategies/**/.env.example
+
+# Freqtrade adatbázisok
 ft_userdata/user_data/strategies/**/tradesv3.sqlite
 ft_userdata/user_data/strategies/**/tradesv3.sqlite-journal
 ft_userdata/user_data/strategies/**/tradesv3.sqlite-shm
 ft_userdata/user_data/strategies/**/tradesv3.sqlite-wal
-
-# Régi helyen lévő DB-k
 ft_userdata/user_data/tradesv3*.sqlite*
 
 # Log fájlok
@@ -53,6 +60,9 @@ ft_userdata/user_data/notebooks/.ipynb_checkpoints/
 
 # Hyperopt lock
 ft_userdata/user_data/hyperopt.lock
+
+# Régi config helyek
+ft_userdata/user_data/config*.json
 
 # .gitkeep fájlok megtartása
 !**/.gitkeep

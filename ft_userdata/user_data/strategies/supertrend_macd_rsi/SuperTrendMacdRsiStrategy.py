@@ -441,3 +441,21 @@ class SuperTrendMacdRsiStrategy(IStrategy):
                 logger.info(f"[{pair}] SHORT blokkolt: {' | '.join(short_blocks)}")
             else:
                 logger.info(f"[{pair}] SHORT >>> SIGNAL READY <<<")
+
+            # --- Nyitott trade TP/SL logolása (ha van) ---
+            open_trades = Trade.get_open_trades()
+            pair_trade = next((t for t in open_trades if t.pair == pair), None)
+            if pair_trade:
+                tp = pair_trade.get_custom_data("tp_price")
+                sl = pair_trade.get_custom_data("sl_price")
+                direction = "SHORT" if pair_trade.is_short else "LONG"
+                profit_pct = pair_trade.calc_profit_ratio(close) * 100
+                tp_dist = ((tp - close) / close * 100) if tp else float("nan")
+                sl_dist = ((sl - close) / close * 100) if sl else float("nan")
+                logger.info(
+                    f"[{pair}] OPEN {direction} #{pair_trade.id} | "
+                    f"entry={pair_trade.open_rate:.6f} | "
+                    f"TP={tp:.6f} ({tp_dist:+.2f}%) | "
+                    f"SL={sl:.6f} ({sl_dist:+.2f}%) | "
+                    f"profit={profit_pct:+.2f}%"
+                )
