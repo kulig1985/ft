@@ -19,6 +19,7 @@ import numpy as np
 import talib.abstract as ta
 from pandas import DataFrame
 
+from freqtrade.enums import RunMode
 from freqtrade.persistence import Trade
 from freqtrade.strategy import (
     DecimalParameter,
@@ -433,7 +434,10 @@ class SuperTrendMacdRsiStrategy(IStrategy):
         return None
 
     def bot_loop_start(self, current_time: datetime, **kwargs) -> None:
-        """Gyertyánkénti logolás - csak új gyertyánál fut (nem minden 5 másodpercben)."""
+        """Gyertyánkénti logolás - csak live/dry-run módban fut, hyperoptban nem."""
+        if self.config.get("runmode") not in (RunMode.LIVE, RunMode.DRY_RUN):
+            return
+
         for pair in self.dp.current_whitelist():
             dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
             if dataframe.empty:
