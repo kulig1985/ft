@@ -42,23 +42,23 @@ services:
 
   # --- SuperTrendMacdRsiStrategy (1H SuperTrend+MACD+RSI) ---
   # FreqUI: http://localhost:8082 | VPS: https://freqtrade-st.kebodev.hu
-  freqtrade_st:
-    image: freqtradeorg/freqtrade:stable
-    restart: unless-stopped
-    container_name: freqtrade_st
-    volumes:
-      - "./user_data:/freqtrade/user_data"
-    ports:
-      - "127.0.0.1:8082:8080"
-    env_file:
-      - ./user_data/strategies/supertrend_macd_rsi/.env
-    command: >
-      trade
-      --logfile /freqtrade/user_data/strategies/supertrend_macd_rsi/logs/freqtrade.log
-      --db-url sqlite:////freqtrade/user_data/strategies/supertrend_macd_rsi/tradesv3.sqlite
-      --config /freqtrade/user_data/strategies/supertrend_macd_rsi/config.json
-      --strategy-path /freqtrade/user_data/strategies/supertrend_macd_rsi
-      --strategy SuperTrendMacdRsiStrategy
+#  freqtrade_st:
+#    image: freqtradeorg/freqtrade:stable
+#    restart: unless-stopped
+#    container_name: freqtrade_st
+#    volumes:
+#      - "./user_data:/freqtrade/user_data"
+#    ports:
+#      - "127.0.0.1:8082:8080"
+#    env_file:
+#      - ./user_data/strategies/supertrend_macd_rsi/.env
+#    command: >
+#      trade
+#      --logfile /freqtrade/user_data/strategies/supertrend_macd_rsi/logs/freqtrade.log
+#      --db-url sqlite:////freqtrade/user_data/strategies/supertrend_macd_rsi/tradesv3.sqlite
+#      --config /freqtrade/user_data/strategies/supertrend_macd_rsi/config.json
+#      --strategy-path /freqtrade/user_data/strategies/supertrend_macd_rsi
+#      --strategy SuperTrendMacdRsiStrategy
 
   # --- EmaAtrBreakoutStrategy (1H végrehajtás, 12H belépés, 1D kilépés) ---
   # FreqUI: http://localhost:8083 | VPS: https://freqtrade-eab.kebodev.hu
