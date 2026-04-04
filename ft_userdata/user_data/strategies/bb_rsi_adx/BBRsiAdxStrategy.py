@@ -20,6 +20,7 @@ from typing import Optional
 import talib.abstract as ta
 from pandas import DataFrame
 
+from freqtrade.enums import RunMode
 from freqtrade.persistence import Trade
 from freqtrade.strategy import (
     DecimalParameter,
@@ -72,8 +73,12 @@ class BBRsiAdxStrategy(IStrategy):
 
     # Gyertyánkénti logoláshoz: utolsó logolt gyertya timestamp páronként
     _last_logged_candle: dict = {}
+    _last_tg_trade_update: dict = {}  # Telegram trade update throttle (5 perc)
 
     def bot_loop_start(self, current_time: datetime, **kwargs) -> None:
+        if self.config.get("runmode") not in (RunMode.LIVE, RunMode.DRY_RUN):
+            return
+
         for pair in self.dp.current_whitelist():
             dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
             if dataframe.empty:
@@ -129,6 +134,50 @@ class BBRsiAdxStrategy(IStrategy):
                 logger.info(f"[{pair}] SHORT blokkolt: {' | '.join(short_blocks)}")
             else:
                 logger.info(f"[{pair}] SHORT >>> SIGNAL READY <<<")
+
+        # --- Nyitott trade Telegram frissítés (5 percenként) ---
+        for trade in Trade.get_open_trades():
+            pair = trade.pair
+            last_update = self._last_tg_trade_update.get(pair)
+            if last_update is not None and (current_time - last_update).total_seconds() < 300:
+                continue
+            self._last_tg_trade_update[pair] = current_time
+
+            dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
+            if dataframe.empty:
+                continue
+            last = dataframe.iloc[-1]
+            current_rate = float(last["close"])
+
+            sl = trade.get_custom_data("sl_price")
+            if sl is None:
+                continue
+
+            direction = "SHORT" if trade.is_short else "LONG"
+            if trade.is_short:
+                tp_10 = trade.open_rate * (1 - 0.10 / trade.leverage)
+            else:
+                tp_10 = trade.open_rate * (1 + 0.10 / trade.leverage)
+
+            sl_dist = abs(current_rate - sl) / current_rate * 100
+            tp_dist = abs(tp_10 - current_rate) / current_rate * 100
+            profit_pct = trade.calc_profit_ratio(current_rate) * 100
+
+            logger.info(
+                f"[{pair}] OPEN {direction} #{trade.id} | "
+                f"entry={trade.open_rate:.4f} | SL={sl:.4f} | TP={tp_10:.4f} | "
+                f"profit={profit_pct:+.2f}%"
+            )
+
+            try:
+                self.dp.send_msg(
+                    f"📈 *{pair}* {direction} `{profit_pct:+.2f}%`\n"
+                    f"Ár: `{current_rate:.4f}`\n"
+                    f"🛑 SL: `{sl:.4f}` táv: `{sl_dist:.2f}%`\n"
+                    f"🎯 TP: `{tp_10:.4f}` táv: `{tp_dist:.2f}%`"
+                )
+            except Exception:
+                pass
 
     def _p(self, pair: str, key: str):
         """Páronkénti paraméter lookup. Ha a pár benne van a pair_configs-ban,
@@ -265,10 +314,29 @@ class BBRsiAdxStrategy(IStrategy):
                 sl_price = last_candle["sl_long"]
 
             trade.set_custom_data("sl_price", float(sl_price))
+
+            entry_price = float(order.safe_price)
+            sl = float(sl_price)
+            direction = "SHORT" if trade.is_short else "LONG"
+            if trade.is_short:
+                tp_10 = entry_price * (1 - 0.10 / trade.leverage)
+            else:
+                tp_10 = entry_price * (1 + 0.10 / trade.leverage)
+
             logger.info(
-                f"BBRsiAdx | {pair} | {'SHORT' if trade.is_short else 'LONG'} "
-                f"entry filled @ {order.safe_price}, SL set to {sl_price:.6f}"
+                f"BBRsiAdx | {pair} | {direction} "
+                f"entry filled @ {entry_price}, SL={sl:.6f}, TP={tp_10:.6f}"
             )
+
+            try:
+                self.dp.send_msg(
+                    f"📊 *{pair}* {direction} nyitva\n"
+                    f"Entry: `{entry_price:.4f}`\n"
+                    f"🛑 SL: `{sl:.4f}`\n"
+                    f"🎯 TP: `{tp_10:.4f}`"
+                )
+            except Exception:
+                pass
 
     def custom_stoploss(
         self,
@@ -285,4 +353,21 @@ class BBRsiAdxStrategy(IStrategy):
             return stoploss_from_absolute(
                 sl_price, current_rate, trade.is_short, trade.leverage
             )
+        return None
+
+    def custom_exit(
+        self,
+        pair: str,
+        trade: Trade,
+        current_time: datetime,
+        current_rate: float,
+        current_profit: float,
+        **kwargs,
+    ) -> Optional[str]:
+        if current_profit >= 0.10:
+            logger.info(
+                f"BBRsiAdx | {pair} | TP 10% hit @ {current_rate:.6f} "
+                f"(profit={current_profit:.2%})"
+            )
+            return "tp_10pct"
         return None

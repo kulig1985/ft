@@ -60,6 +60,7 @@ class EmaAtrBreakoutStrategy(IStrategy):
     stake_amount_usd: float = 10.0
 
     _last_logged_candle: dict = {}
+    _last_tg_trade_update: dict = {}  # Telegram trade update throttle (5 perc)
 
     def __init__(self, config: dict) -> None:
         super().__init__(config)
@@ -187,17 +188,29 @@ class EmaAtrBreakoutStrategy(IStrategy):
 
         entry_price = float(order.safe_price)
         direction = "SHORT" if trade.is_short else "LONG"
+
+        if trade.is_short:
+            tp_10 = entry_price * (1 - 0.10 / trade.leverage)
+            tp_ema = float(last.get("exit_short_level", 0))
+        else:
+            tp_10 = entry_price * (1 + 0.10 / trade.leverage)
+            tp_ema = float(last.get("exit_long_level", 0))
+
         logger.info(
-            f"EmaAtrBreakout | {pair} | {direction} filled @ {entry_price:.4f} | SL={sl_price:.4f}"
+            f"EmaAtrBreakout | {pair} | {direction} filled @ {entry_price:.4f} | "
+            f"SL={sl_price:.4f} | TP10%={tp_10:.4f} | TP_EMA={tp_ema:.4f}"
         )
 
-        # Telegram értesítés
-        self.dp.send_msg(
-            f"📊 *{pair}* {direction}\n"
-            f"Entry: `{entry_price:.4f}`\n"
-            f"🛑 SL: `{sl_price:.4f}`\n"
-            f"🎯 TP: 1D EMA+ATR szintje"
-        )
+        try:
+            self.dp.send_msg(
+                f"📊 *{pair}* {direction} nyitva\n"
+                f"Entry: `{entry_price:.4f}`\n"
+                f"🛑 SL: `{sl_price:.4f}`\n"
+                f"🎯 TP 10%: `{tp_10:.4f}`\n"
+                f"🎯 TP EMA: `{tp_ema:.4f}`"
+            )
+        except Exception:
+            pass
 
     def custom_stoploss(self, pair, trade: Trade, current_time, current_rate,
                         current_profit, after_fill, **kwargs) -> Optional[float]:
@@ -208,7 +221,14 @@ class EmaAtrBreakoutStrategy(IStrategy):
 
     def custom_exit(self, pair, trade: Trade, current_time, current_rate,
                     current_profit, **kwargs) -> Optional[str]:
-        """Kilépés az 1D EMA ± X*ATR szintje alapján."""
+        """Kilépés: 10% profit TP vagy 1D EMA ± X*ATR szint."""
+        if current_profit >= 0.10:
+            logger.info(
+                f"EmaAtrBreakout | {pair} | TP 10% hit @ {current_rate:.6f} "
+                f"(profit={current_profit:.2%})"
+            )
+            return "tp_10pct"
+
         dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
         if dataframe.empty:
             return None
@@ -276,7 +296,7 @@ class EmaAtrBreakoutStrategy(IStrategy):
                 f"curv={curv:.6f}"
             )
 
-            # Nyitott trade logolás
+            # Nyitott trade logolás (gyertya-alapú, 1h-ként)
             open_trades = Trade.get_open_trades()
             pair_trade = next((t for t in open_trades if t.pair == pair), None)
             if pair_trade:
@@ -290,3 +310,45 @@ class EmaAtrBreakoutStrategy(IStrategy):
                     f"SL={sl:.4f} | TP(1D)={tp_level:.4f} | "
                     f"profit={profit_pct:+.2f}%"
                 )
+
+        # --- Nyitott trade Telegram frissítés (5 percenként) ---
+        for trade in Trade.get_open_trades():
+            pair = trade.pair
+            last_update = self._last_tg_trade_update.get(pair)
+            if last_update is not None and (current_time - last_update).total_seconds() < 300:
+                continue
+            self._last_tg_trade_update[pair] = current_time
+
+            dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
+            if dataframe.empty:
+                continue
+            last = dataframe.iloc[-1]
+            current_rate = float(last["close"])
+
+            sl = trade.get_custom_data("sl_price")
+            if sl is None:
+                continue
+
+            direction = "SHORT" if trade.is_short else "LONG"
+            if trade.is_short:
+                tp_10 = trade.open_rate * (1 - 0.10 / trade.leverage)
+                tp_ema = float(last.get("exit_short_level", 0))
+            else:
+                tp_10 = trade.open_rate * (1 + 0.10 / trade.leverage)
+                tp_ema = float(last.get("exit_long_level", 0))
+
+            sl_dist = abs(current_rate - sl) / current_rate * 100
+            tp_dist = abs(tp_10 - current_rate) / current_rate * 100
+            tp_ema_dist = abs(tp_ema - current_rate) / current_rate * 100 if tp_ema else 0
+            profit_pct = trade.calc_profit_ratio(current_rate) * 100
+
+            try:
+                self.dp.send_msg(
+                    f"📈 *{pair}* {direction} `{profit_pct:+.2f}%`\n"
+                    f"Ár: `{current_rate:.4f}`\n"
+                    f"🛑 SL: `{sl:.4f}` táv: `{sl_dist:.2f}%`\n"
+                    f"🎯 TP 10%: `{tp_10:.4f}` táv: `{tp_dist:.2f}%`\n"
+                    f"🎯 TP EMA: `{tp_ema:.4f}` táv: `{tp_ema_dist:.2f}%`"
+                )
+            except Exception:
+                pass
