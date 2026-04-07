@@ -156,25 +156,29 @@ class BBRsiAdxStrategy(IStrategy):
             direction = "SHORT" if trade.is_short else "LONG"
             if trade.is_short:
                 tp_10 = trade.open_rate * (1 - 0.10 / trade.leverage)
+                sl_5 = trade.open_rate * (1 + 0.05 / trade.leverage)
             else:
                 tp_10 = trade.open_rate * (1 + 0.10 / trade.leverage)
+                sl_5 = trade.open_rate * (1 - 0.05 / trade.leverage)
 
-            sl_dist = abs(current_rate - sl) / current_rate * 100
+            sl_atr_dist = abs(current_rate - sl) / current_rate * 100
+            sl_5_dist = abs(current_rate - sl_5) / current_rate * 100
             tp_dist = abs(tp_10 - current_rate) / current_rate * 100
             profit_pct = trade.calc_profit_ratio(current_rate) * 100
 
             logger.info(
                 f"[{pair}] OPEN {direction} #{trade.id} | "
-                f"entry={trade.open_rate:.4f} | SL={sl:.4f} | TP={tp_10:.4f} | "
-                f"profit={profit_pct:+.2f}%"
+                f"entry={trade.open_rate:.4f} | SL_ATR={sl:.4f} | "
+                f"SL_5%={sl_5:.4f} | TP={tp_10:.4f} | profit={profit_pct:+.2f}%"
             )
 
             try:
                 self.dp.send_msg(
                     f"📈 *{pair}* {direction} `{profit_pct:+.2f}%`\n"
                     f"Ár: `{current_rate:.4f}`\n"
-                    f"🛑 SL: `{sl:.4f}` táv: `{sl_dist:.2f}%`\n"
-                    f"🎯 TP: `{tp_10:.4f}` táv: `{tp_dist:.2f}%`"
+                    f"🛑 SL ATR: `{sl:.4f}` táv: `{sl_atr_dist:.2f}%`\n"
+                    f"🛑 SL 5%: `{sl_5:.4f}` táv: `{sl_5_dist:.2f}%`\n"
+                    f"🎯 TP 10%: `{tp_10:.4f}` táv: `{tp_dist:.2f}%`"
                 )
             except Exception:
                 pass
@@ -316,24 +320,28 @@ class BBRsiAdxStrategy(IStrategy):
             trade.set_custom_data("sl_price", float(sl_price))
 
             entry_price = float(order.safe_price)
-            sl = float(sl_price)
+            sl_atr = float(sl_price)
             direction = "SHORT" if trade.is_short else "LONG"
             if trade.is_short:
                 tp_10 = entry_price * (1 - 0.10 / trade.leverage)
+                sl_5 = entry_price * (1 + 0.05 / trade.leverage)
             else:
                 tp_10 = entry_price * (1 + 0.10 / trade.leverage)
+                sl_5 = entry_price * (1 - 0.05 / trade.leverage)
 
             logger.info(
                 f"BBRsiAdx | {pair} | {direction} "
-                f"entry filled @ {entry_price}, SL={sl:.6f}, TP={tp_10:.6f}"
+                f"entry filled @ {entry_price}, SL_ATR={sl_atr:.6f}, "
+                f"SL_5%={sl_5:.6f}, TP={tp_10:.6f}"
             )
 
             try:
                 self.dp.send_msg(
                     f"📊 *{pair}* {direction} nyitva\n"
                     f"Entry: `{entry_price:.4f}`\n"
-                    f"🛑 SL: `{sl:.4f}`\n"
-                    f"🎯 TP: `{tp_10:.4f}`"
+                    f"🛑 SL ATR: `{sl_atr:.4f}`\n"
+                    f"🛑 SL 5%: `{sl_5:.4f}`\n"
+                    f"🎯 TP 10%: `{tp_10:.4f}`"
                 )
             except Exception:
                 pass
@@ -370,4 +378,10 @@ class BBRsiAdxStrategy(IStrategy):
                 f"(profit={current_profit:.2%})"
             )
             return "tp_10pct"
+        if current_profit <= -0.05:
+            logger.info(
+                f"BBRsiAdx | {pair} | SL 5% hit @ {current_rate:.6f} "
+                f"(profit={current_profit:.2%})"
+            )
+            return "sl_5pct"
         return None

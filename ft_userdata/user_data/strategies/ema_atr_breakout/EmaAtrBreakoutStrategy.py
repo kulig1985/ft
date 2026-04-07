@@ -191,21 +191,25 @@ class EmaAtrBreakoutStrategy(IStrategy):
 
         if trade.is_short:
             tp_10 = entry_price * (1 - 0.10 / trade.leverage)
+            sl_5 = entry_price * (1 + 0.05 / trade.leverage)
             tp_ema = float(last.get("exit_short_level", 0))
         else:
             tp_10 = entry_price * (1 + 0.10 / trade.leverage)
+            sl_5 = entry_price * (1 - 0.05 / trade.leverage)
             tp_ema = float(last.get("exit_long_level", 0))
 
         logger.info(
             f"EmaAtrBreakout | {pair} | {direction} filled @ {entry_price:.4f} | "
-            f"SL={sl_price:.4f} | TP10%={tp_10:.4f} | TP_EMA={tp_ema:.4f}"
+            f"SL_swing={sl_price:.4f} | SL_5%={sl_5:.4f} | "
+            f"TP10%={tp_10:.4f} | TP_EMA={tp_ema:.4f}"
         )
 
         try:
             self.dp.send_msg(
                 f"📊 *{pair}* {direction} nyitva\n"
                 f"Entry: `{entry_price:.4f}`\n"
-                f"🛑 SL: `{sl_price:.4f}`\n"
+                f"🛑 SL swing: `{sl_price:.4f}`\n"
+                f"🛑 SL 5%: `{sl_5:.4f}`\n"
                 f"🎯 TP 10%: `{tp_10:.4f}`\n"
                 f"🎯 TP EMA: `{tp_ema:.4f}`"
             )
@@ -228,6 +232,12 @@ class EmaAtrBreakoutStrategy(IStrategy):
                 f"(profit={current_profit:.2%})"
             )
             return "tp_10pct"
+        if current_profit <= -0.05:
+            logger.info(
+                f"EmaAtrBreakout | {pair} | SL 5% hit @ {current_rate:.6f} "
+                f"(profit={current_profit:.2%})"
+            )
+            return "sl_5pct"
 
         dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
         if dataframe.empty:
@@ -332,12 +342,15 @@ class EmaAtrBreakoutStrategy(IStrategy):
             direction = "SHORT" if trade.is_short else "LONG"
             if trade.is_short:
                 tp_10 = trade.open_rate * (1 - 0.10 / trade.leverage)
+                sl_5 = trade.open_rate * (1 + 0.05 / trade.leverage)
                 tp_ema = float(last.get("exit_short_level", 0))
             else:
                 tp_10 = trade.open_rate * (1 + 0.10 / trade.leverage)
+                sl_5 = trade.open_rate * (1 - 0.05 / trade.leverage)
                 tp_ema = float(last.get("exit_long_level", 0))
 
-            sl_dist = abs(current_rate - sl) / current_rate * 100
+            sl_swing_dist = abs(current_rate - sl) / current_rate * 100
+            sl_5_dist = abs(current_rate - sl_5) / current_rate * 100
             tp_dist = abs(tp_10 - current_rate) / current_rate * 100
             tp_ema_dist = abs(tp_ema - current_rate) / current_rate * 100 if tp_ema else 0
             profit_pct = trade.calc_profit_ratio(current_rate) * 100
@@ -346,7 +359,8 @@ class EmaAtrBreakoutStrategy(IStrategy):
                 self.dp.send_msg(
                     f"📈 *{pair}* {direction} `{profit_pct:+.2f}%`\n"
                     f"Ár: `{current_rate:.4f}`\n"
-                    f"🛑 SL: `{sl:.4f}` táv: `{sl_dist:.2f}%`\n"
+                    f"🛑 SL swing: `{sl:.4f}` táv: `{sl_swing_dist:.2f}%`\n"
+                    f"🛑 SL 5%: `{sl_5:.4f}` táv: `{sl_5_dist:.2f}%`\n"
                     f"🎯 TP 10%: `{tp_10:.4f}` táv: `{tp_dist:.2f}%`\n"
                     f"🎯 TP EMA: `{tp_ema:.4f}` táv: `{tp_ema_dist:.2f}%`"
                 )
